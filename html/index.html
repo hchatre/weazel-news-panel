@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Weazel News</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+<div id="app" style="display:none">
+    <!-- HEADER -->
+    <header class="header">
+        <img src="logo.png?v=2" class="logo" alt="Weazel News">
+        <h1>WEAZEL NEWS</h1>
+        <button id="close" class="btn-close">✕</button>
+    </header>
+
+    <!-- NAVIGATION -->
+    <nav class="nav main-nav">
+        <button class="nav-btn" onclick="showPage('home')">Latest</button>
+        <button class="nav-btn weazel-only" onclick="showPage('drafts')">Drafts</button>
+        <button id="pendingNavBtn" class="nav-btn weazel-only" onclick="showPage('pending')">Pending</button>
+        <button id="createNavBtn" class="nav-btn weazel-only" onclick="showPage('create')">Create</button>
+        <button class="nav-btn weazel-only" onclick="showPage('dossiers')">Dossiers</button>
+        <button class="nav-btn admin-only" onclick="showPage('admin')">Admin</button>
+    </nav>
+
+    <!-- PAGES -->
+    <section id="page-home" class="page">
+        <div class="home-container">
+            <h2 class="section-title">Latest News</h2>
+            <div id="latestNews"></div>
+        </div>
+    </section>
+
+    <section id="page-drafts" class="page">
+        <div class="home-container">
+            <h2 class="section-title">Draft Articles</h2>
+            <div id="draftList"></div>
+        </div>
+    </section>
+
+    <section id="page-pending" class="page">
+        <div class="home-container">
+            <h2 class="section-title">Pending Articles</h2>
+            <div id="pendingList"></div>
+        </div>
+    </section>
+
+    <section id="page-create" class="page">
+        <div class="article-editor">
+            <h2>New Article</h2>
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="createTitle" maxlength="120">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="createCategory">
+                    <option value="breaking">Breaking</option>
+                    <option value="crime">Crime</option>
+                    <option value="politics">Politics</option>
+                    <option value="economy">Economy</option>
+                    <option value="events">Events</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Image URL</label>
+                <input type="text" id="imageUrl" placeholder="https://...">
+                <div id="imagePreview" class="image-preview"></div>
+            </div>
+            <div class="form-group">
+                <label>Content</label>
+                <textarea id="createContent"></textarea>
+            </div>
+            <div class="editor-buttons">
+                <button id="saveDraftBtn" class="btn btn-rumour">Save Draft</button>
+                <button id="publishArticleBtn" class="btn btn-confirm">Publish Article</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="page-dossiers" class="page">
+        <div class="container">
+            <div class="sidebar">
+                <h3>Dossiers</h3>
+                <div class="dossier-create">
+                    <input type="text" id="newDossierTitle" placeholder="New dossier title">
+                    <button id="createDossierBtn">Create</button>
+                </div>
+                <div id="dossierList"></div>
+            </div>
+            <div class="content">
+                <div class="content-header">
+                    <h2 id="timelineTitle">Select a dossier</h2>
+                </div>
+                <div class="editor">
+                    <textarea id="timelineInput" placeholder="Write update..."></textarea>
+                    <div class="editor-buttons">
+                        <button onclick="sendTimeline('rumour')" class="btn btn-rumour">Rumour</button>
+                        <button id="confirmedBtn" onclick="sendTimeline('confirmed')" class="btn btn-confirm">Confirmed</button>
+                        <button id="deniedBtn" onclick="sendTimeline('denied')" class="btn btn-deny">Denied</button>
+                    </div>
+                </div>
+                <div class="timeline" id="timeline"></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="page-admin" class="page">
+        <div class="home-container">
+            <h2 class="section-title">Journalist Management</h2>
+            <div class="recruit-box">
+                <input type="text" id="recruitTarget" placeholder="Player ID to recruit">
+                <button id="recruitBtn" class="btn btn-confirm">Recruit</button>
+            </div>
+            <div id="adminList" class="admin-list"></div>
+        </div>
+    </section>
+
+    <section id="articleView" class="page">
+        <div class="article-container">
+            <button id="backToHome" class="btn btn-back">← Back</button>
+            <div class="article-header">
+                <h1 id="viewArticleTitle"></h1>
+                <div id="viewArticleMeta" class="article-meta"></div>
+            </div>
+            <div class="article-separator"></div>
+            <div id="viewArticleContent" class="article-body"></div>
+            <div class="like-section">
+                <button id="likeButton" class="btn btn-like">
+                    <span id="likeIcon">❤️</span>
+                    <span id="likeCount">0</span>
+                </button>
+            </div>
+            <div class="comment-section">
+                <h3>Comments</h3>
+                <div class="comment-input">
+                    <textarea id="commentText" placeholder="Write a comment... (max 150 characters)"></textarea>
+                    <button id="submitComment" class="btn btn-confirm">Post</button>
+                </div>
+                <div class="comment-counter" style="text-align: right; font-size: 12px; margin-top: 4px; color: rgba(255,255,255,0.6);">
+                    <span id="commentCharCount">0</span>/150
+                </div>
+                <div id="commentsList" class="comments-list"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MODALS -->
+    <div id="renameModal" class="modal">
+        <h3>Rename Dossier</h3>
+        <input type="text" id="renameInput" placeholder="New title">
+        <div class="modal-buttons">
+            <button id="renameConfirm" class="btn btn-confirm">Confirm</button>
+            <button id="renameCancel" class="btn btn-deny">Cancel</button>
+        </div>
+    </div>
+
+    <div id="deleteDossierModal" class="modal">
+        <h3>Delete Dossier</h3>
+        <p>Are you sure?</p>
+        <div class="modal-buttons">
+            <button id="deleteDossierConfirm" class="btn btn-confirm">Yes</button>
+            <button id="deleteDossierCancel" class="btn btn-deny">No</button>
+        </div>
+    </div>
+
+    <div id="changeGradeModal" class="modal">
+        <h3>Change Grade</h3>
+        <p>New grade for <span id="changeGradeName"></span></p>
+        <select id="changeGradeSelect">
+            <option value="0">Intern (0)</option>
+            <option value="1">Journalist (1)</option>
+            <option value="2">Editor (2)</option>
+            <option value="3">CEO (3)</option>
+        </select>
+        <div class="modal-buttons">
+            <button id="changeGradeConfirm" class="btn btn-confirm">Confirm</button>
+            <button id="changeGradeCancel" class="btn btn-deny">Cancel</button>
+        </div>
+    </div>
+
+    <div id="fireModal" class="modal">
+        <h3>Fire Journalist</h3>
+        <p>Fire <span id="fireName"></span>?</p>
+        <div class="modal-buttons">
+            <button id="fireConfirm" class="btn btn-confirm">Yes</button>
+            <button id="fireCancel" class="btn btn-deny">No</button>
+        </div>
+    </div>
+
+    <div id="deleteArticleModal" class="modal">
+        <h3>Delete Article</h3>
+        <p>Are you sure?</p>
+        <div class="modal-buttons">
+            <button id="deleteArticleConfirm" class="btn btn-confirm">Yes</button>
+            <button id="deleteArticleCancel" class="btn btn-deny">No</button>
+        </div>
+    </div>
+
+    <div id="deleteCommentModal" class="modal">
+        <h3>Delete Comment</h3>
+        <p>Are you sure?</p>
+        <div class="modal-buttons">
+            <button id="deleteCommentConfirm" class="btn btn-confirm">Yes</button>
+            <button id="deleteCommentCancel" class="btn btn-deny">No</button>
+        </div>
+    </div>
+        <div id="deleteEntryModal" class="modal">
+        <h3>Delete Entry</h3>
+        <p>Are you sure ?</p>
+        <div class="modal-buttons">
+            <button id="deleteEntryConfirm" class="btn btn-confirm">Yes</button>
+            <button id="deleteEntryCancel" class="btn btn-deny">No</button>
+        </div>
+    </div>
+</div>
+
+<!-- NOTIFICATION CONTAINER -->
+<div id="notificationContainer"></div>
+
+</body>
+</html>

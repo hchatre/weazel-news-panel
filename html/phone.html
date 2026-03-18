@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Weazel News</title>
+    <link rel="stylesheet" href="phone.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <div class="header">
+            <button id="backBtn" class="back-btn" style="display: none;">←</button>
+            <h1>Weazel News</h1>
+            <button id="closeBtn" class="close-btn">✕</button>
+        </div>
+
+        <!-- Feed View -->
+        <div id="feedView" class="view">
+            <div id="feedList" class="feed-list"></div>
+        </div>
+
+        <!-- Article View -->
+        <div id="articleView" class="view" style="display: none;">
+            <div class="article-container">
+                <h2 id="articleTitle"></h2>
+                <div id="articleMeta" class="article-meta"></div>
+                <div id="articleImage" class="article-image"></div>
+                <div id="articleContent" class="article-content"></div>
+                
+                <div class="like-section">
+                    <button id="likeButton" class="like-btn">
+                        <span id="likeIcon">❤️</span>
+                        <span id="likeCount">0</span>
+                    </button>
+                </div>
+
+                <div class="comments-section">
+                    <h3>Comments</h3>
+                    <div class="add-comment">
+                        <textarea id="commentInput" placeholder="Write a comment... (max 150)" maxlength="150"></textarea>
+                        <button id="submitComment" class="submit-btn">Post</button>
+                    </div>
+                    <div id="commentsList" class="comments-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Comment Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h3>Edit Comment</h3>
+            <textarea id="editCommentInput" maxlength="150"></textarea>
+            <div class="modal-buttons">
+                <button id="saveEditBtn" class="btn confirm">Save</button>
+                <button id="cancelEditBtn" class="btn deny">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="phone.js"></script>
+</body>
+</html>
