@@ -1,0 +1,16 @@
+# Add to your server.cfg. Never commit your real values.
+# Create NEW webhooks in Discord (Channel settings > Integrations > Webhooks). The old ones were published
+# in the public repository and must be deleted.
+
+set weazel_webhook_publish_1 "https://discord.com/api/webhooks/REPLACE_ID/REPLACE_TOKEN"
+set weazel_webhook_publish_2 "https://discord.com/api/webhooks/REPLACE_ID/REPLACE_TOKEN"
+set weazel_webhook_log       "https://discord.com/api/webhooks/REPLACE_ID/REPLACE_TOKEN"
+
+# 1 (default) = any player can read, like and comment (previous behaviour). 0 = journalists only.
+set weazel_public_access 1
+# 1 = an editor cannot approve their own pending article. Default 0 keeps the previous behaviour.
+set weazel_block_self_approval 0
+
+ensure oxmysql
+ensure qb-core
+ensure qb-weazel-ui   # use your real resource folder name

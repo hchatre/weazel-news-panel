@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src https: http: data:; font-src 'self' data: https://fonts.gstatic.com; connect-src https:;">
     <title>Weazel News</title>
     <link rel="stylesheet" href="style.css">
     <script src="script.js" defer></script>
@@ -18,12 +19,12 @@
 
     <!-- NAVIGATION -->
     <nav class="nav main-nav">
-        <button class="nav-btn" onclick="showPage('home')">Latest</button>
-        <button class="nav-btn weazel-only" onclick="showPage('drafts')">Drafts</button>
-        <button id="pendingNavBtn" class="nav-btn weazel-only" onclick="showPage('pending')">Pending</button>
-        <button id="createNavBtn" class="nav-btn weazel-only" onclick="showPage('create')">Create</button>
-        <button class="nav-btn weazel-only" onclick="showPage('dossiers')">Dossiers</button>
-        <button class="nav-btn admin-only" onclick="showPage('admin')">Admin</button>
+        <button class="nav-btn" data-page="home">Latest</button>
+        <button class="nav-btn weazel-only" data-page="drafts">Drafts</button>
+        <button id="pendingNavBtn" class="nav-btn weazel-only" data-page="pending">Pending</button>
+        <button id="createNavBtn" class="nav-btn weazel-only" data-page="create">Create</button>
+        <button class="nav-btn weazel-only" data-page="dossiers">Dossiers</button>
+        <button class="nav-btn admin-only" data-page="admin">Admin</button>
     </nav>
 
     <!-- PAGES -->
@@ -98,9 +99,9 @@
                 <div class="editor">
                     <textarea id="timelineInput" placeholder="Write update..."></textarea>
                     <div class="editor-buttons">
-                        <button onclick="sendTimeline('rumour')" class="btn btn-rumour">Rumour</button>
-                        <button id="confirmedBtn" onclick="sendTimeline('confirmed')" class="btn btn-confirm">Confirmed</button>
-                        <button id="deniedBtn" onclick="sendTimeline('denied')" class="btn btn-deny">Denied</button>
+                        <button data-timeline="rumour" class="btn btn-rumour">Rumour</button>
+                        <button id="confirmedBtn" data-timeline="confirmed" class="btn btn-confirm">Confirmed</button>
+                        <button id="deniedBtn" data-timeline="denied" class="btn btn-deny">Denied</button>
                     </div>
                 </div>
                 <div class="timeline" id="timeline"></div>

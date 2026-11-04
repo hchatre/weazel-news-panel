@@ -17,6 +17,34 @@ let currentArticleId = null;
 let uploadedImageUrl = null;
 let deleteEntryId = null;
 
+// All text from the server is untrusted (article titles, comments, names...): it is only ever
+// written with textContent / createTextNode, never interpolated into HTML.
+function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+}
+
+// Only plain http(s) URLs without quotes, spaces or markup are accepted as images.
+function safeUrl(u) {
+    if (typeof u !== "string" || u.length > 500) return "";
+    return /^https?:\/\/[\w\-._~:/?#[\]@!$&()*+,;=%]+$/.test(u) ? u : "";
+}
+
+function setImagePreview(url) {
+    const preview = document.getElementById("imagePreview");
+    if (!preview) return;
+    preview.replaceChildren();
+    const safe = safeUrl(url);
+    if (safe) {
+        const img = document.createElement("img");
+        img.src = safe;
+        img.style.maxWidth = "100%";
+        preview.appendChild(img);
+    }
+}
+
 function showPage(name) {
     const isJournalist = (userRole === "weazel" || userRole === "reporter");
     if (name === 'create' && (!isJournalist || userGrade < 1)) name = 'home';
@@ -45,16 +73,18 @@ function fetchNUI(event, data) {
 function showArticleNotification(notification) {
     const container = document.getElementById("notificationContainer");
     if (!container) return;
-    const notif = document.createElement("div");
-    notif.className = "notification";
-    notif.innerHTML = `
-        <div class="notification-badge">📢 NOUVEL ARTICLE</div>
-        <div class="notification-title">${notification.title}</div>
-        <div class="notification-content">${notification.content}</div>
-        ${notification.image ? `<div class="notification-image" style="background-image: url('${notification.image}');"></div>` : ''}
-        <div class="notification-contact">${notification.author}</div>
-        <div class="notification-progress"></div>
-    `;
+    const notif = el("div", "notification");
+    notif.appendChild(el("div", "notification-badge", "\uD83D\uDCE2 NOUVEL ARTICLE"));
+    notif.appendChild(el("div", "notification-title", notification.title));
+    notif.appendChild(el("div", "notification-content", notification.content));
+    const img = safeUrl(notification.image);
+    if (img) {
+        const imgBox = el("div", "notification-image");
+        imgBox.style.backgroundImage = `url("${img}")`;
+        notif.appendChild(imgBox);
+    }
+    notif.appendChild(el("div", "notification-contact", notification.author));
+    notif.appendChild(el("div", "notification-progress"));
     container.appendChild(notif);
     setTimeout(() => notif.remove(), 10000);
 }
@@ -143,11 +173,9 @@ function createArticleCard(article) {
     const card = document.createElement("div");
     card.className = "news-small";
     card.dataset.articleId = article.id;
-    card.innerHTML = `
-        <h3>${article.title}</h3>
-        <div class="small-meta">${article.author || "Weazel"} • ${article.date || ""}</div>
-        <p>${(article.content || "").substring(0, 120)}...</p>
-    `;
+    card.appendChild(el("h3", "", article.title));
+    card.appendChild(el("div", "small-meta", `${article.author || "Weazel"} \u2022 ${article.date || ""}`));
+    card.appendChild(el("p", "", `${String(article.content || "").substring(0, 120)}...`));
     card.onclick = () => fetchNUI("getArticle", { id: article.id });
     return card;
 }
@@ -164,7 +192,8 @@ function renderLatest(entries) {
         const card = createArticleCard(article);
         const stats = document.createElement("div");
         stats.className = "article-stats";
-        stats.innerHTML = `<span>❤️ ${article.likes || 0}</span><span>💬 ${article.comments || 0}</span>`;
+        stats.appendChild(el("span", "", `\u2764\uFE0F ${Number(article.likes) || 0}`));
+        stats.appendChild(el("span", "", `\uD83D\uDCAC ${Number(article.comments) || 0}`));
         card.appendChild(stats);
         if (userGrade >= 3) {
             const del = document.createElement("button");
@@ -273,9 +302,9 @@ function displayArticle(article) {
     document.getElementById("viewArticleMeta").innerText = `${article.author || "Weazel"} • ${article.date || ""}`;
     const body = document.getElementById("viewArticleContent");
     body.innerHTML = "";
-    if (article.image) {
+    if (safeUrl(article.image)) {
         const img = document.createElement("img");
-        img.src = article.image;
+        img.src = safeUrl(article.image);
         img.style.width = "100%";
         img.style.borderRadius = "12px";
         img.style.marginBottom = "20px";
@@ -292,7 +321,9 @@ function updateLikeButton(count, liked) {
     const icon = document.getElementById("likeIcon");
     if (!btn || !cnt) return;
     cnt.innerText = count;
-    icon.innerText = liked ? "❤️" : "🤍";
+    // Another player's like only changes the counter; our own liked state arrives separately.
+    if (liked === undefined || liked === null) return;
+    icon.innerText = liked ? "\u2764\uFE0F" : "\uD83E\uDD0D";
     btn.style.background = liked ? "rgba(192,18,46,0.2)" : "transparent";
 }
 
@@ -307,13 +338,11 @@ function renderComments(comments) {
     comments.forEach(c => {
         const div = document.createElement("div");
         div.className = "comment";
-        div.innerHTML = `
-            <div class="comment-header">
-                <span class="comment-author">${c.author_name}</span>
-                <span class="comment-date">${c.date}</span>
-            </div>
-            <div class="comment-text">${c.comment}</div>
-        `;
+        const header = el("div", "comment-header");
+        header.appendChild(el("span", "comment-author", c.author_name));
+        header.appendChild(el("span", "comment-date", c.date));
+        div.appendChild(header);
+        div.appendChild(el("div", "comment-text", c.comment));
         const isJournalist = (userRole === "weazel" || userRole === "reporter");
         if (isJournalist && userGrade >= 2) {
             const del = document.createElement("button");
@@ -337,12 +366,11 @@ function populateCreateForm(article) {
     if (article.image) {
         uploadedImageUrl = article.image;
         document.getElementById("imageUrl").value = article.image;  // set manual input
-        const preview = document.getElementById("imagePreview");
-        if (preview) preview.innerHTML = `<img src="${article.image}" style="max-width:100%;">`;
+        setImagePreview(article.image);
     } else {
         uploadedImageUrl = null;
         document.getElementById("imageUrl").value = "";
-        document.getElementById("imagePreview").innerHTML = "";
+        setImagePreview("");
     }
 }
 
@@ -390,15 +418,14 @@ function renderTimeline(entries) {
     box.innerHTML = "";
     entries.forEach(e => {
         const div = document.createElement("div");
-        div.className = "news-card " + (e.status || "rumour");
-        div.innerHTML = `
-            <div class="card-header">
-                <span class="badge ${e.status || 'rumour'}">${(e.status || 'rumour').toUpperCase()}</span>
-                <span class="date">${e.date || ''}</span>
-            </div>
-            <div class="card-content">${e.content}</div>
-            <div class="card-footer">by ${e.author || 'Unknown'}</div>
-        `;
+        const status = ["rumour", "confirmed", "denied"].includes(e.status) ? e.status : "rumour";
+        div.className = "news-card " + status;
+        const head = el("div", "card-header");
+        head.appendChild(el("span", "badge " + status, status.toUpperCase()));
+        head.appendChild(el("span", "date", e.date || ""));
+        div.appendChild(head);
+        div.appendChild(el("div", "card-content", e.content));
+        div.appendChild(el("div", "card-footer", `by ${e.author || "Unknown"}`));
         const isJournalist = (userRole === "weazel" || userRole === "reporter");
         if (isJournalist && userGrade >= 2) {
             const actions = document.createElement("div");
@@ -413,11 +440,12 @@ function renderTimeline(entries) {
             };
             actions.appendChild(del);
             const sel = document.createElement("select");
-            sel.innerHTML = `
-                <option value="rumour" ${e.status === 'rumour' ? 'selected' : ''}>Rumour</option>
-                <option value="confirmed" ${e.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
-                <option value="denied" ${e.status === 'denied' ? 'selected' : ''}>Denied</option>
-            `;
+            [["rumour", "Rumour"], ["confirmed", "Confirmed"], ["denied", "Denied"]].forEach(([v, label]) => {
+                const opt = el("option", "", label);
+                opt.value = v;
+                if (status === v) opt.selected = true;
+                sel.appendChild(opt);
+            });
             sel.onchange = () => fetchNUI("changeEntryType", { entryId: e.id, newType: sel.value });
             actions.appendChild(sel);
             div.appendChild(actions);
@@ -441,13 +469,17 @@ function renderAdmin(users) {
     users.forEach(u => {
         const row = document.createElement("div");
         row.className = "admin-row";
-        row.innerHTML = `
-            <span>${u.online ? "🟢" : "⚫"} ${u.name}</span>
-            <span>${labels[u.grade] || "Unknown"} (${u.grade})</span>
-            <span>Last: ${u.last_login}</span>
-            <button class="btn set-grade" data-citizenid="${u.citizenid}" data-name="${u.name}">Change Grade</button>
-            <button class="btn fire" data-citizenid="${u.citizenid}" data-name="${u.name}">Fire</button>
-        `;
+        row.appendChild(el("span", "", `${u.online ? "\uD83D\uDFE2" : "\u26AB"} ${u.name}`));
+        row.appendChild(el("span", "", `${labels[u.grade] || "Unknown"} (${u.grade})`));
+        row.appendChild(el("span", "", `Last: ${u.last_login}`));
+        const gradeBtn = el("button", "btn set-grade", "Change Grade");
+        gradeBtn.dataset.citizenid = u.citizenid;
+        gradeBtn.dataset.name = u.name;
+        row.appendChild(gradeBtn);
+        const fireBtn = el("button", "btn fire", "Fire");
+        fireBtn.dataset.citizenid = u.citizenid;
+        fireBtn.dataset.name = u.name;
+        row.appendChild(fireBtn);
         row.querySelector(".set-grade").addEventListener("click", (e) => {
             const btn = e.currentTarget;
             changeGradeCitizenId = btn.dataset.citizenid;
@@ -468,15 +500,16 @@ function renderAdmin(users) {
 
 // Initialisation
 document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll("[data-page]").forEach(btn => {
+        btn.addEventListener("click", () => showPage(btn.dataset.page));
+    });
+    document.querySelectorAll("[data-timeline]").forEach(btn => {
+        btn.addEventListener("click", () => sendTimeline(btn.dataset.timeline));
+    });
     // Manual image URL input
     document.getElementById("imageUrl")?.addEventListener("input", function(e) {
         uploadedImageUrl = e.target.value.trim() || null;
-        const preview = document.getElementById("imagePreview");
-        if (uploadedImageUrl) {
-            preview.innerHTML = `<img src="${uploadedImageUrl}" style="max-width:100%;">`;
-        } else {
-            preview.innerHTML = "";
-        }
+        setImagePreview(uploadedImageUrl);
     });
 
     document.getElementById("createDossierBtn")?.addEventListener("click", () => {
@@ -628,7 +661,7 @@ document.getElementById("publishArticleBtn")?.addEventListener("click", () => {
     if (!title || !content) return;
     const image = uploadedImageUrl || null;
     if (editingDraftId) {
-        fetchNUI("publishDraft", { id: editingDraftId });
+        fetchNUI("publishDraft", { id: editingDraftId, title, content, category: cat, image });
         editingDraftId = null;
     } else {
         fetchNUI("publishArticle", { title, content, category: cat, image });
@@ -641,7 +674,7 @@ function clearCreateForm() {
     document.getElementById("createContent").value = "";
     document.getElementById("createCategory").value = "breaking";
     document.getElementById("imageUrl").value = "";          // clear manual input
-    document.getElementById("imagePreview").innerHTML = "";
+    setImagePreview("");
     uploadedImageUrl = null;
     editingDraftId = null;
 }
