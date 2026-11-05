@@ -1,0 +1,51 @@
+"use client";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+
+export type Lang = "en" | "fr";
+const dict: Record<Lang, Record<string, string>> = {
+  en: {
+    appName: "Weazel Newsroom", dashboard: "Dashboard", articles: "Articles", investigations: "Investigations", search: "Search",
+    signIn: "Sign in", signOut: "Sign out", email: "Email", password: "Password", loginFailed: "Sign-in failed. Check your details.",
+    newArticle: "New article", title: "Title", subtitle: "Subtitle", summary: "Summary", body: "Body", category: "Category", status: "Status", author: "Author",
+    save: "Save", saving: "Saving…", saved: "Saved", conflict: "Someone else changed this article. Reload to see their version.", loading: "Loading…",
+    empty: "Nothing here yet.", error: "Something went wrong.", forbidden: "You do not have access to this page.", notFound: "Not found.",
+    myDrafts: "My drafts", awaitingReview: "Awaiting review", scheduled: "Scheduled", activeInvestigations: "Active investigations", myTasks: "My tasks",
+    recentActivity: "Recent activity", workflow: "Workflow", note: "Note", noteRequired: "A note is required for this step.", revisions: "Revisions", history: "History",
+    comments: "Comments", addComment: "Add comment", internalNotes: "Internal notes (never published)", correction: "Publish correction", reference: "Reference",
+    priority: "Priority", classification: "Classification", timeline: "Timeline", addEntry: "Add entry", verification: "Verification", tasks: "Tasks", sources: "Sources",
+    addTask: "Add task", addSource: "Add source", sourceCode: "Pseudonym / code", reliability: "Reliability", restricted: "Restricted entry",
+    theme: "Theme", language: "Language", collapse: "Collapse menu", expand: "Expand menu", page: "Page", prev: "Previous", next: "Next",
+    searchPlaceholder: "Search articles, cases, entries…", results: "Results", yourAccess: "Your access", confirm: "Confirm", cancel: "Cancel",
+    notImplemented: "Not implemented yet", identityHidden: "Identity hidden — requires special permission and is audited.",
+    skip: "Skip to content", all: "All", reason: "Reason",
+  },
+  fr: {
+    appName: "Rédaction Weazel", dashboard: "Tableau de bord", articles: "Articles", investigations: "Enquêtes", search: "Recherche",
+    signIn: "Connexion", signOut: "Déconnexion", email: "E-mail", password: "Mot de passe", loginFailed: "Échec de la connexion. Vérifiez vos informations.",
+    newArticle: "Nouvel article", title: "Titre", subtitle: "Sous-titre", summary: "Résumé", body: "Corps", category: "Catégorie", status: "Statut", author: "Auteur",
+    save: "Enregistrer", saving: "Enregistrement…", saved: "Enregistré", conflict: "Quelqu'un a modifié cet article. Rechargez pour voir sa version.", loading: "Chargement…",
+    empty: "Rien pour le moment.", error: "Une erreur est survenue.", forbidden: "Vous n'avez pas accès à cette page.", notFound: "Introuvable.",
+    myDrafts: "Mes brouillons", awaitingReview: "En attente de relecture", scheduled: "Programmés", activeInvestigations: "Enquêtes actives", myTasks: "Mes tâches",
+    recentActivity: "Activité récente", workflow: "Circuit éditorial", note: "Note", noteRequired: "Une note est requise pour cette étape.", revisions: "Révisions", history: "Historique",
+    comments: "Commentaires", addComment: "Ajouter un commentaire", internalNotes: "Notes internes (jamais publiées)", correction: "Publier un correctif", reference: "Référence",
+    priority: "Priorité", classification: "Classification", timeline: "Chronologie", addEntry: "Ajouter une entrée", verification: "Vérification", tasks: "Tâches", sources: "Sources",
+    addTask: "Ajouter une tâche", addSource: "Ajouter une source", sourceCode: "Pseudonyme / code", reliability: "Fiabilité", restricted: "Entrée restreinte",
+    theme: "Thème", language: "Langue", collapse: "Réduire le menu", expand: "Déplier le menu", page: "Page", prev: "Précédent", next: "Suivant",
+    searchPlaceholder: "Rechercher articles, dossiers, entrées…", results: "Résultats", yourAccess: "Votre accès", confirm: "Confirmer", cancel: "Annuler",
+    notImplemented: "Pas encore implémenté", identityHidden: "Identité masquée — permission spéciale requise, accès journalisé.",
+    skip: "Aller au contenu", all: "Tous", reason: "Motif",
+  },
+};
+
+const Ctx = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string }>({ lang: "en", setLang() {}, t: (k) => k });
+
+export function I18nProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>("en");
+  useEffect(() => { try { const v = localStorage.getItem("wz_lang"); if (v === "fr" || v === "en") setLangState(v); } catch {} }, []);
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+  const setLang = (l: Lang) => { setLangState(l); try { localStorage.setItem("wz_lang", l); } catch {} };
+  // Missing keys fall back to English, then to the key itself, so a gap never renders blank.
+  const t = (k: string) => dict[lang][k] ?? dict.en[k] ?? k;
+  return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>;
+}
+export const useI18n = () => useContext(Ctx);

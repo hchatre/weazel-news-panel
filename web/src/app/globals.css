@@ -1,0 +1,11 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+:root { --bg: 244 245 247; --panel: 255 255 255; --raised: 238 240 243; --line: 214 219 226; --ink: 20 24 33; --muted: 98 108 124; --brand: 200 32 42; --ok: 22 130 80; --warn: 176 110 8; }
+.dark { --bg: 13 16 23; --panel: 20 25 35; --raised: 28 34 47; --line: 44 52 68; --ink: 232 236 243; --muted: 143 154 172; --brand: 232 64 74; --ok: 70 190 130; --warn: 226 160 50; }
+html { color-scheme: light dark; }
+body { @apply bg-bg text-ink antialiased; font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; }
+.card { @apply rounded-lg border border-line bg-panel; }
+.btn { @apply inline-flex items-center gap-2 rounded-md border border-line bg-raised px-3 py-1.5 text-sm font-medium hover:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50; }
+.btn-primary { @apply border-brand bg-brand text-white hover:opacity-90; }
+.input { @apply w-full rounded-md border border-line bg-bg px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand; }
+.label { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-muted; }
+.badge { @apply inline-flex items-center rounded border border-line bg-raised px-2 py-0.5 text-xs font-medium; }
