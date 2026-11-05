@@ -1,0 +1,13 @@
+alembic==1.18.5
+bcrypt==5.0.0
+fastapi==0.139.2
+httpx==0.28.1
+psycopg2-binary==2.9.12
+pydantic==2.13.4
+pydantic-settings==2.14.2
+PyJWT==2.10.1
+pytest==9.1.1
+SQLAlchemy==2.0.51
+uvicorn==0.51.0
+# optional: only needed to import the legacy MySQL tables
+PyMySQL==1.1.1
