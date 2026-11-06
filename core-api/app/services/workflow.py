@@ -87,4 +87,28 @@ def transition(ctx: Ctx, art: m.Article, to_status: str, *, note: str = "", feed
     db.add(m.ArticleEvent(article_id=art.id, actor_id=ctx.user.id, kind="transition", from_status=from_status, to_status=to_status,
                           note=note[:4000], feedback=[{"field": str(f.get("field", ""))[:40], "comment": str(f["comment"])[:2000]} for f in feedback]))
     audit.record(db, ctx.user, f"article.{to_status}", "article", art.id, detail={"from": from_status, "to": to_status})
+    _notify_transition(ctx, art, to_status)
     return art
+
+
+def _notify_transition(ctx: Ctx, art: m.Article, to_status: str) -> None:
+    """Reviewers hear about submissions; the author and assignees hear about decisions. Recipients are filtered through
+    the normal read rule, so nobody is told about an article they could not open."""
+    from app.services.access import article_readable
+    from app.services.notify import notify, users_with_permission
+
+    assignees = list(db_assignee_ids(ctx.db, art.id))
+    if to_status == "submitted":
+        pool = {u.id for u in users_with_permission(ctx.db, "article.review")} - {art.author_id} - set(assignees)
+        kind = "article.awaiting_review"
+    elif to_status in {"in_review", "revision_requested", "approved", "published", "corrected"}:
+        pool = {art.author_id, *assignees}
+        kind = f"article.{to_status}"
+    else:
+        return
+    allowed = [u for u in ctx.db.scalars(select(m.User).where(m.User.id.in_([i for i in pool if i]))) if article_readable(Ctx(ctx.db, u), art)]
+    notify(ctx.db, [u.id for u in allowed], kind, title=art.title, link=f"/articles/{art.id}", dedupe_key=f"article:{art.id}:v{art.version}:{to_status}", exclude=ctx.user.id)
+
+
+def db_assignee_ids(db, article_id: int):
+    return db.scalars(select(m.ArticleAssignee.user_id).where(m.ArticleAssignee.article_id == article_id))

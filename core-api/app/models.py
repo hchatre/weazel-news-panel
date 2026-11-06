@@ -352,3 +352,50 @@ class AuditLog(Base):
     entity_id: Mapped[str | None] = mapped_column(String(40))
     detail: Mapped[dict] = mapped_column(JSONB, default=dict)
     investigation_id: Mapped[int | None] = mapped_column(Integer, index=True)  # lets audit reads honour record access
+
+
+# ------------------------------------------------------------------------------------------------- Phase 3
+class EvidenceItem(Base):
+    """A stored file. Content lives on disk under a random name; the database keeps the hash so tampering is detectable.
+    Items are never hard-deleted (chain of custody): they are archived."""
+    __tablename__ = "evidence_items"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    investigation_id: Mapped[int] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), index=True)
+    entry_id: Mapped[int | None] = mapped_column(ForeignKey("investigation_entries.id", ondelete="SET NULL"))
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text, default="")
+    kind: Mapped[str] = mapped_column(String(15))  # image | document | audio | video | text
+    original_filename: Mapped[str] = mapped_column(String(255))
+    stored_name: Mapped[str] = mapped_column(String(64), unique=True)
+    mime_type: Mapped[str] = mapped_column(String(100))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
+    restricted: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    uploaded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
+
+
+class EvidenceCustody(Base):
+    """Append-only custody log for one evidence item."""
+    __tablename__ = "evidence_custody"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    evidence_id: Mapped[int] = mapped_column(ForeignKey("evidence_items.id", ondelete="CASCADE"), index=True)
+    action: Mapped[str] = mapped_column(String(20))  # uploaded | downloaded | restricted | unrestricted | archived | restored | integrity_ok | integrity_failed
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    note: Mapped[str] = mapped_column(String(500), default="")
+    at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
+
+
+class Notification(Base):
+    """In-app notification. `title` is a snapshot taken only for recipients who could already see the record."""
+    __tablename__ = "notifications"
+    __table_args__ = (UniqueConstraint("user_id", "dedupe_key", name="uq_notification_dedupe"), Index("ix_notifications_user_unread", "user_id", "read_at"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(40))
+    title: Mapped[str] = mapped_column(String(255), default="")
+    link: Mapped[str] = mapped_column(String(200), default="")
+    dedupe_key: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
+    read_at: Mapped[datetime | None] = mapped_column(TS)

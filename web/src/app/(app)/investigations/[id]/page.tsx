@@ -6,6 +6,7 @@ import { useApi, fmt } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { Badge, Field, PageTitle, State } from "@/components/ui";
+import EvidencePanel from "@/components/EvidencePanel";
 
 const VERIF = ["unverified_claim", "rumour", "confirmed", "denial"];
 
@@ -73,6 +74,7 @@ export default function InvestigationPage() {
               </ol>
             </section>
             <aside className="space-y-4">
+              <EvidencePanel invId={id} canWrite={!!canWrite} />
               <section className="card p-4" aria-label={t("tasks")}>
                 <h2 className="mb-2 font-semibold">{t("tasks")}</h2>
                 {tasks.data?.map((k) => (

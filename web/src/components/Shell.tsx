@@ -5,6 +5,7 @@ import { FormEvent, ReactNode, useEffect, useState } from "react";
 import { FileText, LayoutDashboard, Search, Moon, Sun, PanelLeftClose, PanelLeftOpen, LogOut, FolderSearch } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import Notifications from "@/components/Notifications";
 
 export default function Shell({ children }: { children: ReactNode }) {
   const { me, loading, logout } = useAuth();
@@ -56,6 +57,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             <input id="gs" className="input" placeholder={t("searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
             <button className="btn" aria-label={t("search")}><Search size={16} /></button>
           </form>
+          <Notifications />
           <button className="btn" onClick={() => setLang(lang === "en" ? "fr" : "en")} aria-label={t("language")}>{lang.toUpperCase()}</button>
           <button className="btn" onClick={toggleTheme} aria-label={t("theme")}>{dark ? <Sun size={16} /> : <Moon size={16} />}</button>
         </header>

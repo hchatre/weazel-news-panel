@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_MINUTES: int = 30
     LOCAL_ADMIN_NAME: str = "Local Administrator"
 
+    STORAGE_DIR: str = "./storage"  # evidence files; keep outside any web-served folder
+    MAX_UPLOAD_MB: int = 25
     CORS_ORIGINS: str = "http://localhost:3000"
     PUBLIC_READ_ENABLED: bool = True  # /public/articles (published articles only, no auth)
     LOGIN_MAX_ATTEMPTS: int = 5

@@ -397,6 +397,8 @@ def set_assignees(article_id: int, data: AssigneesIn, ctx: Ctx = Depends(require
         db.add(m.ArticleAssignee(article_id=art.id, user_id=u.id))
     db.add(m.ArticleEvent(article_id=art.id, actor_id=ctx.user.id, kind="assignment", note=", ".join(u.display_name for u in users)))
     audit.record(db, ctx.user, "article.assign", "article", art.id, detail={"user_ids": sorted(u.id for u in users)})
+    from app.services.notify import notify
+    notify(db, [u.id for u in users], "article.assigned", title=art.title, link=f"/articles/{art.id}", dedupe_key=f"article:{art.id}:assigned:v{art.version}", exclude=ctx.user.id)
     db.commit()
     return _detail(ctx, art)
 

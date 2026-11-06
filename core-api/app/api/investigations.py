@@ -224,6 +224,9 @@ def set_participant(inv_id: int, data: ParticipantIn, ctx: Ctx = Depends(get_ctx
     else:
         row.access = data.access
     audit.record(db, ctx.user, "investigation.participant", "investigation", inv.id, detail={"user_id": target.id, "access": data.access}, investigation_id=inv.id)
+    from app.services.notify import notify
+    # reference only, never the title: a confidential case's name is not leaked into a notification list
+    notify(db, [target.id], "investigation.added", title=inv.reference, link=f"/investigations/{inv.id}", dedupe_key=f"inv:{inv.id}:added:{target.id}:{data.access}", exclude=ctx.user.id)
     db.commit()
     return {"ok": True}
 
@@ -387,6 +390,9 @@ def add_task(inv_id: int, data: TaskIn, ctx: Ctx = Depends(get_ctx)):
     ctx.db.add(t)
     ctx.db.flush()
     audit.record(ctx.db, ctx.user, "investigation.task_add", "investigation_task", t.id, investigation_id=inv.id)
+    if t.assignee_id:  # _check_assignee already proved the assignee can see this investigation
+        from app.services.notify import notify
+        notify(ctx.db, [t.assignee_id], "task.assigned", title=t.title, link=f"/investigations/{inv.id}", dedupe_key=f"task:{t.id}:assigned:{t.assignee_id}", exclude=ctx.user.id)
     ctx.db.commit()
     return {"id": t.id}
 
@@ -408,6 +414,9 @@ def update_task(inv_id: int, task_id: int, data: TaskPatch, ctx: Ctx = Depends(g
     if "assignee_id" in fields:
         _check_assignee(ctx, inv, fields["assignee_id"])
         t.assignee_id = fields["assignee_id"]
+        if t.assignee_id:
+            from app.services.notify import notify
+            notify(ctx.db, [t.assignee_id], "task.assigned", title=t.title, link=f"/investigations/{inv.id}", dedupe_key=f"task:{t.id}:assigned:{t.assignee_id}", exclude=ctx.user.id)
     if "title" in fields:
         t.title = clean_text(fields["title"], 255)
     if "due_date" in fields:

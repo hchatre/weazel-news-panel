@@ -17,6 +17,8 @@ const dict: Record<Lang, Record<string, string>> = {
     theme: "Theme", language: "Language", collapse: "Collapse menu", expand: "Expand menu", page: "Page", prev: "Previous", next: "Next",
     searchPlaceholder: "Search articles, cases, entries…", results: "Results", yourAccess: "Your access", confirm: "Confirm", cancel: "Cancel",
     notImplemented: "Not implemented yet", identityHidden: "Identity hidden — requires special permission and is audited.",
+    evidence: "Evidence", upload: "Upload", file: "File", download: "Download", verifyIntegrity: "Verify integrity", custody: "Custody log", integrityOk: "Integrity confirmed", integrityFailed: "INTEGRITY CHECK FAILED — the file differs from what was uploaded",
+    notifications: "Notifications", markAllRead: "Mark all read", noNotifications: "No notifications.", restrictedItem: "Restricted",
     skip: "Skip to content", all: "All", reason: "Reason",
   },
   fr: {
@@ -33,6 +35,8 @@ const dict: Record<Lang, Record<string, string>> = {
     theme: "Thème", language: "Langue", collapse: "Réduire le menu", expand: "Déplier le menu", page: "Page", prev: "Précédent", next: "Suivant",
     searchPlaceholder: "Rechercher articles, dossiers, entrées…", results: "Résultats", yourAccess: "Votre accès", confirm: "Confirmer", cancel: "Annuler",
     notImplemented: "Pas encore implémenté", identityHidden: "Identité masquée — permission spéciale requise, accès journalisé.",
+    evidence: "Preuves", upload: "Téléverser", file: "Fichier", download: "Télécharger", verifyIntegrity: "Vérifier l'intégrité", custody: "Journal de conservation", integrityOk: "Intégrité confirmée", integrityFailed: "ÉCHEC DE L'INTÉGRITÉ — le fichier diffère de l'original",
+    notifications: "Notifications", markAllRead: "Tout marquer comme lu", noNotifications: "Aucune notification.", restrictedItem: "Restreint",
     skip: "Aller au contenu", all: "Tous", reason: "Motif",
   },
 };
