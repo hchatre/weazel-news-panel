@@ -1,6 +1,6 @@
 """Drives the built frontend in Chrome against a live core-api (dev data). Run: python e2e/smoke.py
 Needs: API on :8000 with users jo@/ed@weazel.test (password DevPassword!2026), `npm run build && npm start` on :3000."""
-import os, sys
+import json, os, subprocess, sys, uuid
 from playwright.sync_api import sync_playwright, expect
 
 BASE = os.environ.get("WEB", "http://127.0.0.1:3000")
@@ -10,6 +10,15 @@ XSS = '<img src=x onerror="window.__pwned=1">'
 def login(page, email, pw=PW):
     page.goto(f"{BASE}/login")
     page.fill("#email", email); page.fill("#pw", pw); page.click("form button")
+
+BRIDGE_JS = os.path.join(os.path.dirname(__file__), "..", "..", "server", "bridge.js")
+API = os.environ.get("API", "http://127.0.0.1:8000")
+BRIDGE_SECRET = os.environ["WEAZEL_BRIDGE_SECRET"]  # same value the API was started with
+
+def bridge(script):
+    """Calls the real server/bridge.js, exactly as the game server would."""
+    code = f"const b=require({json.dumps(BRIDGE_JS)});const c=b.client({{baseUrl:{json.dumps(API)},secret:{json.dumps(BRIDGE_SECRET)}}});(async()=>{{{script}}})().then(r=>console.log(JSON.stringify(r)))"
+    return json.loads(subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True).stdout.strip().splitlines()[-1])
 
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=os.environ.get("CHROME_PATH", "/usr/bin/google-chrome"), args=["--no-sandbox"])
@@ -62,6 +71,27 @@ with sync_playwright() as p:
     page.keyboard.press("Escape"); expect(page.locator("[role=dialog]")).to_have_count(0)
     page.goto(art_url); expect(page.locator("button:has-text('in review')")).to_be_visible()
     page.click("button:has-text('in review')"); expect(page.locator("h1 ~ div .badge")).to_have_text("in review")
+
+    # in-game sign-in: a signed ticket opens the app with no password, is stripped from the URL, and works only once
+    cid = "E2E" + uuid.uuid4().hex[:8]
+    assert bridge(f"return c.syncStaff([{{citizenid:'{cid}',name:'Gamer Reporter',job:'reporter',grade:1}}])")["json"]["created"] == 1
+    url = bridge(f"return c.issueTicket('{cid}')")["json"]["url"]
+    page.evaluate("sessionStorage.clear(); localStorage.setItem('wz_lang','en')")  # the earlier steps switched the UI to French
+    page.goto(url); expect(page).to_have_url(f"{BASE}/dashboard")
+    expect(page.get_by_text("Gamer Reporter")).to_be_visible()
+    assert "ticket" not in page.url
+    page.evaluate("sessionStorage.clear()"); page.goto(url)
+    expect(page.locator("p[role=alert]")).to_contain_text("already used"); expect(page.get_by_role("link", name="Go to the sign-in page")).to_be_visible()
+    page.goto(f"{BASE}/fivem-login"); expect(page.locator("p[role=alert]")).to_be_visible()  # no ticket at all
+    # a journalist has no access to integrations (menu hidden and API refuses)
+    page.evaluate("sessionStorage.clear()"); page.goto(bridge(f"return c.issueTicket('{cid}')")["json"]["url"]); expect(page).to_have_url(f"{BASE}/dashboard")
+    expect(page.get_by_role("link", name="Integrations")).to_have_count(0)
+    page.goto(f"{BASE}/admin/integrations"); expect(page.get_by_text("You do not have access")).to_be_visible()
+    # an administrator sees the integration status, with no secrets on the page
+    page.evaluate("sessionStorage.clear()"); login(page, "admin@weazel.test", "AdminPassword!2026")
+    page.get_by_role("link", name="Integrations").click(); expect(page.get_by_text("FiveM bridge")).to_be_visible()
+    expect(page.get_by_text("Configured").first).to_be_visible()
+    assert BRIDGE_SECRET not in page.content()
 
     # unauthenticated access redirects to login
     page.context.clear_cookies(); page.evaluate("sessionStorage.clear()"); page.goto(f"{BASE}/articles"); expect(page).to_have_url(f"{BASE}/login")

@@ -32,3 +32,14 @@ Legend: DONE = changed and covered by an automated test. DONE* = changed, not te
 1. Discord: delete the three exposed webhooks and create new ones.
 2. Put the new URLs only in `server.cfg` (not in the repo).
 3. Search your own history/forks for the old URLs; deleting a webhook is the only real fix.
+
+## Phase 5 additions (bridge, sync, Discord)
+- [x] Bridge requests are HMAC-signed with timestamp + nonce; replay, tamper, stale and wrong-path requests are refused (tests, incl. Node↔API)
+- [x] Identity for in-game sign-in is taken from the server-side player, never from a client value
+- [x] Login tickets: hashed at rest, single use (atomic), 60 s, bound to an active account
+- [x] Bridge secret and Discord webhook live only in the environment / server.cfg convars; never returned, logged or rendered
+- [x] Staff sync never touches locally created accounts or hand-assigned roles; sessions end on role change or dismissal
+- [x] Discord messages: public facts only, no mentions, queued transactionally, de-duplicated, retried with backoff
+- [ ] Verify inside a real FiveM server (exports, job events, oxmysql schema) — **not done**
+- [ ] Reverse-proxy path check if you ever put the API behind a proxy — **not done**
+- [ ] Rotate `WEAZEL_BRIDGE_SECRET` procedure (change both sides, restart) — documented here, not automated

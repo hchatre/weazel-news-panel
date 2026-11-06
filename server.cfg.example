@@ -14,3 +14,8 @@ set weazel_block_self_approval 0
 ensure oxmysql
 ensure qb-core
 ensure qb-weazel-ui   # use your real resource folder name
+
+# --- Weazel web platform bridge (optional) -------------------------------------------------------------
+# Must be at least 32 random characters and identical to WEAZEL_BRIDGE_SECRET on the API. Never commit the real value.
+set weazel_api_url "http://127.0.0.1:8000"
+set weazel_bridge_secret "REPLACE_WITH_32_PLUS_RANDOM_CHARACTERS"

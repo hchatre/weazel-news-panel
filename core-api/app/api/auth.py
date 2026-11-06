@@ -24,7 +24,7 @@ class LoginIn(BaseModel):
 @router.post("/login")
 def login(data: LoginIn, request: Request, db: Session = Depends(get_db)):
     s = get_settings()
-    if s.AUTH_MODE != "password":
+    if s.AUTH_MODE not in {"password", "fivem"}:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Password login is disabled in this mode")
     email = data.email.strip().lower()
     key = f"{request.client.host if request.client else '?'}|{email}"

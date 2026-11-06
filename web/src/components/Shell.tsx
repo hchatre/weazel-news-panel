@@ -2,13 +2,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, ReactNode, useEffect, useState } from "react";
-import { FileText, LayoutDashboard, Search, Moon, Sun, PanelLeftClose, PanelLeftOpen, LogOut, FolderSearch } from "lucide-react";
+import { FileText, Plug, LayoutDashboard, Search, Moon, Sun, PanelLeftClose, PanelLeftOpen, LogOut, FolderSearch } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import Notifications from "@/components/Notifications";
 
 export default function Shell({ children }: { children: ReactNode }) {
-  const { me, loading, logout } = useAuth();
+  const { me, loading, logout, can } = useAuth();
   const { t, lang, setLang } = useI18n();
   const path = usePathname();
   const router = useRouter();
@@ -25,6 +25,7 @@ export default function Shell({ children }: { children: ReactNode }) {
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/articles", label: t("articles"), icon: FileText },
     { href: "/investigations", label: t("investigations"), icon: FolderSearch },
+    ...(can("settings.manage") ? [{ href: "/admin/integrations", label: t("integrations"), icon: Plug }] : []),  // hidden, and the API enforces it again
   ];
   const toggleTheme = () => { const n = !dark; setDark(n); document.documentElement.classList.toggle("dark", n); try { localStorage.setItem("wz_theme", n ? "dark" : "light"); } catch {} };
   const toggleNav = () => { const n = !collapsed; setCollapsed(n); try { localStorage.setItem("wz_nav", n ? "1" : "0"); } catch {} };

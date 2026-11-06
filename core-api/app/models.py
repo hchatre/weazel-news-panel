@@ -54,6 +54,7 @@ class User(Base):
     employment_grade: Mapped[int | None] = mapped_column(Integer)
     employment_status: Mapped[str] = mapped_column(String(20), default="active")  # active | suspended | former
     language: Mapped[str] = mapped_column(String(5), default="en")
+    role_locked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")  # an administrator set the role by hand: employment sync no longer changes it
     created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(TS)
     role: Mapped[Role | None] = relationship()
@@ -423,3 +424,37 @@ class AiRun(Base):
     disposition: Mapped[str] = mapped_column(String(10), default="pending")  # pending | accepted | rejected (set by the person)
     created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), index=True)
     disposition_at: Mapped[datetime | None] = mapped_column(TS)
+
+
+# ------------------------------------------------------------------------------------------------- Phase 5
+class BridgeNonce(Base):
+    """Every accepted bridge request records its nonce; a repeat is a replay and is refused."""
+    __tablename__ = "bridge_nonces"
+    nonce: Mapped[str] = mapped_column(String(64), primary_key=True)
+    seen_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), index=True)
+
+
+class BridgeTicket(Base):
+    """One-time login ticket minted for a player the game server vouched for. Only its hash is stored."""
+    __tablename__ = "bridge_tickets"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(TS)
+    used_at: Mapped[datetime | None] = mapped_column(TS)
+
+
+class OutboxMessage(Base):
+    """Outgoing integration message (Discord). `event_key` is unique so the same event is never queued twice."""
+    __tablename__ = "outbox_messages"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    channel: Mapped[str] = mapped_column(String(30))
+    event_key: Mapped[str] = mapped_column(String(120), unique=True)
+    payload: Mapped[dict] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(10), default="pending", index=True)  # pending | sent | dead
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
+    last_error: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
+    sent_at: Mapped[datetime | None] = mapped_column(TS)

@@ -8,6 +8,8 @@ client_scripts {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
+    'server/bridge.js',
+    'server/bridge.lua',
     'server/main.lua'
 }
 

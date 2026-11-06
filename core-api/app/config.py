@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     AI_MAX_INPUT_CHARS: int = 24000
     AI_DAILY_LIMIT: int = 50  # runs per user per day
 
+    # FiveM bridge. The game server signs its requests with this shared secret (HMAC-SHA256). Empty = bridge off.
+    BRIDGE_SECRET: str = ""
+    BRIDGE_MAX_SKEW_SECONDS: int = 60
+    TICKET_TTL_SECONDS: int = 60
+    PUBLIC_BASE_URL: str = "http://localhost:3000"
+    # Discord is an outbox with retry, fed only with public facts. The webhook URL lives here (environment), never in code or the database.
+    DISCORD_WEBHOOK_PUBLISH: str = ""
+    DISCORD_MAX_ATTEMPTS: int = 6
+
     CORS_ORIGINS: str = "http://localhost:3000"
     PUBLIC_READ_ENABLED: bool = True  # /public/articles (published articles only, no auth)
     LOGIN_MAX_ATTEMPTS: int = 5
@@ -47,8 +56,12 @@ class Settings(BaseSettings):
     def _guards(self):
         if self.AUTH_MODE not in {"local", "password", "fivem"}:
             raise ValueError("WEAZEL_AUTH_MODE must be local, password or fivem")
-        if self.AUTH_MODE == "fivem":
-            raise ValueError("WEAZEL_AUTH_MODE=fivem is not implemented yet (FiveM bridge is Phase 5)")
+        if self.AUTH_MODE == "fivem" and len(self.BRIDGE_SECRET) < 32:
+            raise ValueError("WEAZEL_AUTH_MODE=fivem needs WEAZEL_BRIDGE_SECRET (at least 32 random characters)")
+        if self.BRIDGE_SECRET and len(self.BRIDGE_SECRET) < 32:
+            raise ValueError("WEAZEL_BRIDGE_SECRET must be at least 32 characters")
+        if self.DISCORD_WEBHOOK_PUBLISH and not self.DISCORD_WEBHOOK_PUBLISH.startswith(("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")):
+            raise ValueError("WEAZEL_DISCORD_WEBHOOK_PUBLISH must be a Discord webhook URL (https://discord.com/api/webhooks/...)")
         if self.AUTH_MODE == "local" and self.ENVIRONMENT == "production":
             raise ValueError("WEAZEL_AUTH_MODE=local is not allowed when WEAZEL_ENVIRONMENT=production")
         if self.AUTH_MODE == "password" and self.ENVIRONMENT != "test":

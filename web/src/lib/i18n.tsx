@@ -22,6 +22,8 @@ const dict: Record<Lang, Record<string, string>> = {
     ai: "AI assistant", aiNotConfigured: "The AI assistant is not configured on this server.", aiRun: "Run", aiRunning: "Working…", aiAccept: "Mark as accepted", aiReject: "Mark as rejected", aiCopy: "Copy text",
     aiNote: "Accepting only records your decision. It never changes the record; copy the text yourself if you want to use it.", aiUnsupported: "Citations removed because they do not match the data given to the model:", aiCitations: "Cites entries", aiTruncated: "Only the most recent part was sent (too long).", aiTranslateTo: "Translate to",
     task_headlines: "Headline ideas", task_proofread: "Proofread", task_summarize: "Summarise", task_translate: "Translate", task_claims_check: "Claims to verify", task_summarize_timeline: "Summarise timeline", task_open_questions: "Open questions", task_suggest_leads: "Suggest leads",
+    integrations: "Integrations", bridge: "FiveM bridge", discord: "Discord publishing", configured: "Configured", notConfigured: "Not configured", outbox: "Delivery queue", retry: "Retry", noFailures: "Nothing pending or failed.",
+    attempts: "attempts", fivemSigningIn: "Signing you in from the game…", fivemFailed: "This sign-in link is invalid, expired or already used. Type /newsroom in the game to get a new one.", backToLogin: "Go to the sign-in page",
     skip: "Skip to content", all: "All", reason: "Reason",
   },
   fr: {
@@ -43,6 +45,8 @@ const dict: Record<Lang, Record<string, string>> = {
     ai: "Assistant IA", aiNotConfigured: "L'assistant IA n'est pas configuré sur ce serveur.", aiRun: "Lancer", aiRunning: "En cours…", aiAccept: "Marquer comme accepté", aiReject: "Marquer comme rejeté", aiCopy: "Copier le texte",
     aiNote: "Accepter enregistre seulement votre décision. Le dossier n'est jamais modifié ; copiez vous-même le texte si vous voulez l'utiliser.", aiUnsupported: "Citations retirées car elles ne correspondent pas aux données transmises au modèle :", aiCitations: "Cite les entrées", aiTruncated: "Seule la partie la plus récente a été envoyée (trop long).", aiTranslateTo: "Traduire en",
     task_headlines: "Idées de titres", task_proofread: "Relecture", task_summarize: "Résumer", task_translate: "Traduire", task_claims_check: "Affirmations à vérifier", task_summarize_timeline: "Résumer la chronologie", task_open_questions: "Questions ouvertes", task_suggest_leads: "Suggérer des pistes",
+    integrations: "Intégrations", bridge: "Pont FiveM", discord: "Publication Discord", configured: "Configuré", notConfigured: "Non configuré", outbox: "File d'envoi", retry: "Réessayer", noFailures: "Rien en attente ni en échec.",
+    attempts: "tentatives", fivemSigningIn: "Connexion depuis le jeu…", fivemFailed: "Ce lien de connexion est invalide, expiré ou déjà utilisé. Tapez /newsroom en jeu pour en obtenir un nouveau.", backToLogin: "Aller à la page de connexion",
     skip: "Aller au contenu", all: "Tous", reason: "Motif",
   },
 };

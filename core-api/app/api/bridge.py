@@ -1,0 +1,154 @@
+"""Endpoints called by the FiveM game server (signed) and the one-time ticket exchange used by the browser."""
+import hashlib
+import json
+import re
+import secrets
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field, ValidationError
+from sqlalchemy import func, select, update
+from sqlalchemy.orm import Session
+
+from app import models as m
+from app.api.common import clean_text
+from app.config import get_settings
+from app.db import get_db
+from app.security import create_access_token, login_limiter
+from app.services import audit
+from app.services.bridge import verified_body
+
+router = APIRouter(tags=["bridge"])
+CID = re.compile(r"^[A-Za-z0-9]{3,50}$")
+
+
+def _parse(model, body: bytes):
+    try:
+        return model.model_validate(json.loads(body or b"{}"))
+    except (ValueError, ValidationError):
+        raise HTTPException(422, "Invalid request body")
+
+
+class SessionIn(BaseModel):
+    citizenid: str = Field(pattern=r"^[A-Za-z0-9]{3,50}$")
+
+
+@router.post("/bridge/session")
+async def issue_ticket(body: bytes = Depends(verified_body), db: Session = Depends(get_db)):
+    """The game server vouches for a character (it knows the player's source -> citizenid); we mint a one-time ticket for it.
+    The player's own client never supplies the citizen id, so it cannot ask for someone else's ticket."""
+    s = get_settings()
+    data = _parse(SessionIn, body)
+    user = db.scalar(select(m.User).where(m.User.citizen_id == data.citizenid))
+    if user is None or not user.is_active or user.role_id is None:
+        raise HTTPException(404, "No newsroom account for this character")
+    recent = db.scalar(select(func.count()).select_from(m.BridgeTicket).where(
+        m.BridgeTicket.user_id == user.id, m.BridgeTicket.created_at > datetime.now(timezone.utc) - timedelta(minutes=1))) or 0
+    if recent >= 5:
+        raise HTTPException(429, "Too many login tickets requested")
+    ticket = secrets.token_urlsafe(32)
+    db.add(m.BridgeTicket(token_hash=hashlib.sha256(ticket.encode()).hexdigest(), user_id=user.id,
+                          expires_at=datetime.now(timezone.utc) + timedelta(seconds=s.TICKET_TTL_SECONDS)))
+    audit.record(db, user, "bridge.ticket_issued", "user", user.id)
+    db.commit()
+    return {"ticket": ticket, "expires_in": s.TICKET_TTL_SECONDS, "url": f"{s.PUBLIC_BASE_URL.rstrip('/')}/fivem-login?ticket={ticket}"}
+
+
+class ExchangeIn(BaseModel):
+    ticket: str = Field(min_length=20, max_length=100)
+
+
+@router.post("/auth/fivem-exchange")
+def exchange(data: ExchangeIn, request: Request, db: Session = Depends(get_db)):
+    s = get_settings()
+    if not s.BRIDGE_SECRET or s.AUTH_MODE == "local":
+        raise HTTPException(404, "Not available")
+    key = f"ticket|{request.client.host if request.client else '?'}"
+    if login_limiter.blocked(key, s.LOGIN_MAX_ATTEMPTS * 4, s.LOGIN_WINDOW_SECONDS):
+        raise HTTPException(429, "Too many attempts, try again later")
+    h = hashlib.sha256(data.ticket.encode()).hexdigest()
+    now = datetime.now(timezone.utc)
+    # single atomic claim: two simultaneous exchanges of the same ticket cannot both succeed
+    claimed = db.execute(update(m.BridgeTicket).where(m.BridgeTicket.token_hash == h, m.BridgeTicket.used_at.is_(None), m.BridgeTicket.expires_at > now)
+                         .values(used_at=now).returning(m.BridgeTicket.user_id)).scalar_one_or_none()
+    user = db.get(m.User, claimed) if claimed else None
+    if user is None or not user.is_active or user.role_id is None:
+        login_limiter.hit(key)
+        db.rollback() if claimed is None else db.commit()
+        raise HTTPException(401, "Invalid or expired ticket")
+    user.last_login_at = now
+    audit.record(db, user, "auth.login_fivem", "user", user.id)
+    db.commit()
+    return {"access_token": create_access_token(user.id, user.token_version), "token_type": "bearer", "expires_in": s.ACCESS_TOKEN_MINUTES * 60}
+
+
+class Player(BaseModel):
+    citizenid: str = Field(pattern=r"^[A-Za-z0-9]{3,50}$")
+    name: str = Field(min_length=1, max_length=120)
+    job: str = Field(min_length=1, max_length=50)
+    grade: int = Field(ge=0, le=100)
+
+
+class SyncIn(BaseModel):
+    players: list[Player] = Field(max_length=500)
+
+
+@router.post("/bridge/sync-staff")
+async def sync_staff(body: bytes = Depends(verified_body), db: Session = Depends(get_db)):
+    """QBCore is authoritative for employment. Employment maps to an application role through the configurable job/grade table.
+    Never touched: accounts created locally (administrators, password accounts) and roles set by hand (`role_locked`).
+    Absent players are left alone; only a player reported with an unmapped job loses access."""
+    data = _parse(SyncIn, body)
+    mapping = {(j.job_name, j.grade_level): j.role_id for j in db.scalars(select(m.JobGradeMapping))}
+    roles = {r.id: r.key for r in db.scalars(select(m.Role))}
+    out = dict(created=0, updated=0, role_changed=0, deactivated=0, reactivated=0, skipped_local=0, skipped_unmapped=0)
+    for p in data.players:
+        user = db.scalar(select(m.User).where(m.User.citizen_id == p.citizenid))
+        role_id = mapping.get((p.job, p.grade))
+        if user is not None and user.source == "local":
+            out["skipped_local"] += 1
+            continue
+        if role_id is None:  # not newsroom staff (any more)
+            if user is not None and user.is_active:
+                user.is_active, user.employment_status, user.employment_job, user.employment_grade = False, "former", p.job, p.grade
+                user.token_version += 1  # sessions end immediately
+                audit.record(db, None, "bridge.deactivated", "user", user.id, detail={"job": p.job, "grade": p.grade})
+                out["deactivated"] += 1
+            else:
+                out["skipped_unmapped"] += 1
+            continue
+        if user is None:
+            user = m.User(citizen_id=p.citizenid, display_name=clean_text(p.name, 120), role_id=role_id, source="fivem",
+                          employment_job=p.job, employment_grade=p.grade, employment_status="active")
+            db.add(user)
+            db.flush()
+            audit.record(db, None, "bridge.user_created", "user", user.id, detail={"role": roles[role_id]})
+            out["created"] += 1
+            continue
+        changed = False
+        if not user.is_active and user.employment_status == "former":  # deactivated by an earlier sync, not by a person
+            user.is_active, user.employment_status, changed = True, "active", True
+            audit.record(db, None, "bridge.reactivated", "user", user.id)
+            out["reactivated"] += 1
+        user.source = "fivem"
+        user.display_name = clean_text(p.name, 120) or user.display_name
+        user.employment_job, user.employment_grade = p.job, p.grade
+        if user.role_id != role_id and not user.role_locked and user.is_active:
+            audit.record(db, None, "bridge.role_changed", "user", user.id, detail={"from": roles.get(user.role_id), "to": roles[role_id]})
+            user.role_id = role_id
+            user.token_version += 1
+            out["role_changed"] += 1
+            changed = True
+        elif user.role_id is None and user.is_active:
+            user.role_id = role_id
+        out["updated"] += int(changed)
+    db.commit()
+    return out
+
+
+@router.get("/bridge/staff-ids")
+async def staff_ids(body: bytes = Depends(verified_body), db: Session = Depends(get_db)):
+    """Citizen ids of accounts that employment sync manages. The game server includes them in its next report even if their job
+    changed, so a dismissal made while the player was offline still reaches the platform."""
+    rows = db.scalars(select(m.User.citizen_id).where(m.User.citizen_id.is_not(None), m.User.source.in_(["fivem", "legacy"])).order_by(m.User.id).limit(2000))
+    return {"citizenids": list(rows)}

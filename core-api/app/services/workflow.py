@@ -88,6 +88,7 @@ def transition(ctx: Ctx, art: m.Article, to_status: str, *, note: str = "", feed
                           note=note[:4000], feedback=[{"field": str(f.get("field", ""))[:40], "comment": str(f["comment"])[:2000]} for f in feedback]))
     audit.record(db, ctx.user, f"article.{to_status}", "article", art.id, detail={"from": from_status, "to": to_status})
     _notify_transition(ctx, art, to_status)
+    _queue_discord(ctx, art, to_status)
     return art
 
 
@@ -112,3 +113,14 @@ def _notify_transition(ctx: Ctx, art: m.Article, to_status: str) -> None:
 
 def db_assignee_ids(db, article_id: int):
     return db.scalars(select(m.ArticleAssignee.user_id).where(m.ArticleAssignee.article_id == article_id))
+
+
+def _queue_discord(ctx: Ctx, art: m.Article, to_status: str) -> None:
+    from app.config import get_settings
+    from app.services.outbox import enqueue, publish_payload
+
+    if to_status not in {"published", "corrected"} or not get_settings().DISCORD_WEBHOOK_PUBLISH:
+        return
+    author = ctx.db.scalar(select(m.User.display_name).where(m.User.id == art.author_id)) if art.author_id else None
+    # queued in the same transaction as the publication; the key makes a retry of the request queue it only once
+    enqueue(ctx.db, "publish", f"article:{art.id}:{to_status}:v{art.version}", publish_payload(art, author, to_status))

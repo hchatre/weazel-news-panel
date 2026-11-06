@@ -202,6 +202,8 @@ def change_role(user_id: int, data: RoleChange, ctx: Ctx = Depends(require("staf
     _guard_target(ctx, target, role)
     prev = target.role.key if target.role else None
     target.role_id = role.id
+    if target.source != "local":
+        target.role_locked = True  # hand-assigned: the next employment sync must not undo it
     target.token_version += 1  # their old tokens stop working so the new permissions apply immediately
     audit.record(db, ctx.user, "staff.role_change", "user", target.id, detail={"from": prev, "to": role.key})
     db.commit()
