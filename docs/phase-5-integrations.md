@@ -75,5 +75,5 @@ The Node client and the Python API were tested against each other (a real API pr
 * Only a `publish` Discord channel exists. No Discord login, no Discord role sync, no moderation/log channel.
 * The old in-game NUI still writes to the legacy MySQL tables; re-run the importer to bring that data across (until the NUI is moved onto the API, which is not built).
 
-## 8. LB Phone — not implemented
-I did not build a phone app. I don't have your LB Phone version, and its app/NUI API differs between versions, so any code written now would be a guess I could not test. The repository's `client/phone.lua` (and the commented phone entries in `fxmanifest.lua`) are untouched legacy code. What exists and a phone app could use today: the public read API (`GET /api/v1/public/articles`, published articles only, no internal notes). To proceed I need the LB Phone version and its custom-app documentation or an example app folder from your server.
+## 8. LB Phone
+A read-only LB Phone app was added afterwards: see `docs/phase-5b-lbphone.md`. It has **not** been loaded into LB Phone; its registration call is unverified against 2.8.1 and the document lists exactly what to check in game.
