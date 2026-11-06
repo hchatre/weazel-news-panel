@@ -12,9 +12,9 @@ from app.permissions import (
 
 def seed_defaults(db: Session) -> None:
     existing_perms = set(db.scalars(select(m.Permission.key)))
-    for key, desc in PERMISSIONS.items():
-        if key not in existing_perms:
-            db.add(m.Permission(key=key, description=desc))
+    new_perms = {k for k in PERMISSIONS if k not in existing_perms}
+    for key in new_perms:
+        db.add(m.Permission(key=key, description=PERMISSIONS[key]))
     db.flush()
 
     roles = {r.key: r for r in db.scalars(select(m.Role))}
@@ -26,6 +26,18 @@ def seed_defaults(db: Session) -> None:
         db.add(role)
         roles[key] = role
     db.flush()
+
+    # A permission introduced by an upgrade is granted to the default roles that define it, exactly once: at the moment the
+    # permission first appears. After that an administrator's choice (removing it from a role) is never overwritten by a re-seed.
+    if new_perms:
+        for key, _name, _rank, perms in DEFAULT_ROLES:
+            role = roles.get(key)
+            if role is None:
+                continue
+            have_rp = {rp.permission_key for rp in role.permissions}
+            for p in sorted((perms & new_perms) - have_rp):
+                db.add(m.RolePermission(role_id=role.id, permission_key=p))
+        db.flush()
 
     have = {(j.job_name, j.grade_level) for j in db.scalars(select(m.JobGradeMapping))}
     for job, grade, role_key in DEFAULT_JOB_MAPPINGS:

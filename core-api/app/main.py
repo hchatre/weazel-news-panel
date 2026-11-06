@@ -2,12 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import admin, articles, auth, dashboard, evidence, investigations, notifications, public, search
+from app.api import admin, ai, articles, auth, dashboard, evidence, investigations, notifications, public, search
 from app.config import get_settings
 from app.db import SessionLocal
 
 settings = get_settings()
-app = FastAPI(title="Weazel News Intelligence API", version="0.3.0", docs_url="/docs" if settings.ENVIRONMENT != "production" else None, redoc_url=None)
+app = FastAPI(title="Weazel News Intelligence API", version="0.4.0", docs_url="/docs" if settings.ENVIRONMENT != "production" else None, redoc_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=False,
                    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"], allow_headers=["Authorization", "Content-Type"])
 
@@ -31,5 +31,5 @@ def health():
         return {"status": "degraded", "database": "error"}
 
 
-for r in (auth.router, articles.router, investigations.router, search.router, dashboard.router, admin.router, public.router, evidence.router, notifications.router):
+for r in (auth.router, articles.router, investigations.router, search.router, dashboard.router, admin.router, public.router, evidence.router, notifications.router, ai.router):
     app.include_router(r, prefix="/api/v1")

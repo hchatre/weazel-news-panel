@@ -19,6 +19,9 @@ const dict: Record<Lang, Record<string, string>> = {
     notImplemented: "Not implemented yet", identityHidden: "Identity hidden — requires special permission and is audited.",
     evidence: "Evidence", upload: "Upload", file: "File", download: "Download", verifyIntegrity: "Verify integrity", custody: "Custody log", integrityOk: "Integrity confirmed", integrityFailed: "INTEGRITY CHECK FAILED — the file differs from what was uploaded",
     notifications: "Notifications", markAllRead: "Mark all read", noNotifications: "No notifications.", restrictedItem: "Restricted",
+    ai: "AI assistant", aiNotConfigured: "The AI assistant is not configured on this server.", aiRun: "Run", aiRunning: "Working…", aiAccept: "Mark as accepted", aiReject: "Mark as rejected", aiCopy: "Copy text",
+    aiNote: "Accepting only records your decision. It never changes the record; copy the text yourself if you want to use it.", aiUnsupported: "Citations removed because they do not match the data given to the model:", aiCitations: "Cites entries", aiTruncated: "Only the most recent part was sent (too long).", aiTranslateTo: "Translate to",
+    task_headlines: "Headline ideas", task_proofread: "Proofread", task_summarize: "Summarise", task_translate: "Translate", task_claims_check: "Claims to verify", task_summarize_timeline: "Summarise timeline", task_open_questions: "Open questions", task_suggest_leads: "Suggest leads",
     skip: "Skip to content", all: "All", reason: "Reason",
   },
   fr: {
@@ -37,6 +40,9 @@ const dict: Record<Lang, Record<string, string>> = {
     notImplemented: "Pas encore implémenté", identityHidden: "Identité masquée — permission spéciale requise, accès journalisé.",
     evidence: "Preuves", upload: "Téléverser", file: "Fichier", download: "Télécharger", verifyIntegrity: "Vérifier l'intégrité", custody: "Journal de conservation", integrityOk: "Intégrité confirmée", integrityFailed: "ÉCHEC DE L'INTÉGRITÉ — le fichier diffère de l'original",
     notifications: "Notifications", markAllRead: "Tout marquer comme lu", noNotifications: "Aucune notification.", restrictedItem: "Restreint",
+    ai: "Assistant IA", aiNotConfigured: "L'assistant IA n'est pas configuré sur ce serveur.", aiRun: "Lancer", aiRunning: "En cours…", aiAccept: "Marquer comme accepté", aiReject: "Marquer comme rejeté", aiCopy: "Copier le texte",
+    aiNote: "Accepter enregistre seulement votre décision. Le dossier n'est jamais modifié ; copiez vous-même le texte si vous voulez l'utiliser.", aiUnsupported: "Citations retirées car elles ne correspondent pas aux données transmises au modèle :", aiCitations: "Cite les entrées", aiTruncated: "Seule la partie la plus récente a été envoyée (trop long).", aiTranslateTo: "Traduire en",
+    task_headlines: "Idées de titres", task_proofread: "Relecture", task_summarize: "Résumer", task_translate: "Traduire", task_claims_check: "Affirmations à vérifier", task_summarize_timeline: "Résumer la chronologie", task_open_questions: "Questions ouvertes", task_suggest_leads: "Suggérer des pistes",
     skip: "Aller au contenu", all: "Tous", reason: "Motif",
   },
 };

@@ -217,3 +217,16 @@ def test_notifications_are_private_and_markable(client, w, db):
     assert client.post(f"{API}/notifications/read-all", headers=w.h(w.jane)).status_code == 200
     assert client.get(f"{API}/notifications/unread-count", headers=w.h(w.jane)).json() == {"count": 0}
     assert client.get(f"{API}/notifications").status_code == 401
+
+
+def test_evidence_can_be_attached_to_a_visible_timeline_entry_only(client, w):
+    c = new_case(client, w)
+    grant(client, w, c["id"], w.jane, "write")
+    open_e = client.post(f"{API}/investigations/{c['id']}/entries", headers=w.h(w.jo), json={"content": "plain"}).json()
+    sec = client.post(f"{API}/investigations/{c['id']}/entries", headers=w.h(w.jo), json={"content": "lead-only", "restricted": True}).json()
+    assert upload(client, w, w.jane, c["id"], entry_id=str(open_e["id"])).json()["entry_id"] == open_e["id"]
+    assert upload(client, w, w.jane, c["id"], entry_id=str(sec["id"])).status_code == 422  # jane cannot see that entry, so cannot attach to it
+    assert upload(client, w, w.jo, c["id"], entry_id=str(sec["id"])).status_code == 201  # the lead can
+    other = new_case(client, w, title="Other")
+    foreign = client.post(f"{API}/investigations/{other['id']}/entries", headers=w.h(w.jo), json={"content": "x"}).json()
+    assert upload(client, w, w.jo, c["id"], entry_id=str(foreign["id"])).status_code == 422  # entries of another case are refused

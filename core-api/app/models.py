@@ -399,3 +399,27 @@ class Notification(Base):
     dedupe_key: Mapped[str] = mapped_column(String(120))
     created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
     read_at: Mapped[datetime | None] = mapped_column(TS)
+
+
+# ------------------------------------------------------------------------------------------------- Phase 4
+class AiRun(Base):
+    """One AI suggestion. The prompt is NOT stored (only its hash and size); the output is, because the person asked for it.
+    Nothing in this table is ever applied to an article or investigation automatically."""
+    __tablename__ = "ai_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    task: Mapped[str] = mapped_column(String(30))
+    subject_type: Mapped[str] = mapped_column(String(15))  # article | investigation
+    subject_id: Mapped[int] = mapped_column(Integer)
+    provider: Mapped[str] = mapped_column(String(20))
+    model: Mapped[str] = mapped_column(String(100), default="")
+    input_chars: Mapped[int] = mapped_column(Integer, default=0)
+    input_sha256: Mapped[str] = mapped_column(String(64), default="")
+    status: Mapped[str] = mapped_column(String(10), default="ok")  # ok | failed
+    output: Mapped[str] = mapped_column(Text, default="")
+    citations: Mapped[list] = mapped_column(JSONB, default=list)
+    unsupported_citations: Mapped[list] = mapped_column(JSONB, default=list)
+    truncated: Mapped[bool] = mapped_column(Boolean, default=False)
+    disposition: Mapped[str] = mapped_column(String(10), default="pending")  # pending | accepted | rejected (set by the person)
+    created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now(), index=True)
+    disposition_at: Mapped[datetime | None] = mapped_column(TS)

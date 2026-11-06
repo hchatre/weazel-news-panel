@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { Badge, Field, PageTitle, State } from "@/components/ui";
 import EvidencePanel from "@/components/EvidencePanel";
+import AiPanel from "@/components/AiPanel";
 
 const VERIF = ["unverified_claim", "rumour", "confirmed", "denial"];
 
@@ -74,6 +75,7 @@ export default function InvestigationPage() {
               </ol>
             </section>
             <aside className="space-y-4">
+              <AiPanel subjectType="investigation" subjectId={id} />
               <EvidencePanel invId={id} canWrite={!!canWrite} />
               <section className="card p-4" aria-label={t("tasks")}>
                 <h2 className="mb-2 font-semibold">{t("tasks")}</h2>

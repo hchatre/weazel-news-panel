@@ -84,7 +84,7 @@ def test_config_guards():
         Settings(AUTH_MODE="password", ENVIRONMENT="production", JWT_SECRET="change-me-to-a-long-random-string")
     with pytest.raises(ValueError):
         Settings(AUTH_MODE="password", ENVIRONMENT="production", JWT_SECRET="short")
-    assert Settings(AUTH_MODE="password", ENVIRONMENT="production", JWT_SECRET="x" * 40).AUTH_MODE == "password"
+    assert Settings(AUTH_MODE="password", ENVIRONMENT="production", JWT_SECRET="x" * 40, AI_PROVIDER="none").AUTH_MODE == "password"
 
 
 def test_local_mode_resolves_single_admin_without_token(db, monkeypatch):

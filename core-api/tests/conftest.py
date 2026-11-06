@@ -3,7 +3,7 @@ import os
 os.environ.update(
     WEAZEL_ENVIRONMENT="test", WEAZEL_AUTH_MODE="password",
     WEAZEL_DATABASE_URL=os.environ.get("WEAZEL_TEST_DATABASE_URL", "postgresql+psycopg2://weazel:weazel_dev@127.0.0.1:5432/weazel_test"),
-    WEAZEL_JWT_SECRET="test-secret-test-secret-test-secret-123",
+    WEAZEL_JWT_SECRET="test-secret-test-secret-test-secret-123", WEAZEL_AI_PROVIDER="mock",
 )
 
 import bcrypt  # noqa: E402

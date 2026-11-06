@@ -37,10 +37,11 @@ PERMISSIONS: dict[str, str] = {
     "settings.manage": "Change roles, workflow and configuration",
     "audit.read": "Read the audit log",
     "audit.export": "Export the audit log",
+    "ai.use": "Use the AI workspace (suggestions only; a person always decides)",
 }
 
 _INTERN = {"article.create", "article.edit.own", "article.submit", "investigation.read", "investigation.contribute", "source.read"}
-_JOURNALIST = _INTERN | {"article.read", "investigation.create", "investigation.verify", "evidence.upload", "evidence.read", "source.manage"}
+_JOURNALIST = _INTERN | {"article.read", "investigation.create", "investigation.verify", "evidence.upload", "evidence.read", "source.manage", "ai.use"}
 _SENIOR = _JOURNALIST | {"article.edit.assigned", "investigation.edit", "evidence.download", "article.notes.read"}
 _EDITOR = _SENIOR | {
     "article.edit.any", "article.review", "article.approve", "article.publish", "article.schedule", "article.correct",

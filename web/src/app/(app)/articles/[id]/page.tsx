@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { useApi, fmt } from "@/lib/useApi";
 import { useI18n } from "@/lib/i18n";
 import { Badge, Field, PageTitle, State } from "@/components/ui";
+import AiPanel from "@/components/AiPanel";
 
 export default function ArticlePage() {
   const { id } = useParams<{ id: string }>();
@@ -71,6 +72,7 @@ export default function ArticlePage() {
                 <div className="flex flex-wrap gap-2">{a.allowed_transitions.map((x: any) => (
                   <button key={x.to} className="btn" onClick={() => move(x.to, x.requires_note)}>{x.to.replace(/_/g, " ")}{x.requires_note ? " *" : ""}</button>))}</div>
               </section>
+              <AiPanel subjectType="article" subjectId={id} />
               <section className="card p-4" aria-label={t("revisions")}>
                 <h2 className="mb-2 font-semibold">{t("revisions")}</h2>
                 {revs.data?.map((r, i, arr) => (

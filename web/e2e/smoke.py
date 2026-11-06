@@ -43,6 +43,13 @@ with sync_playwright() as p:
     page.set_input_files("#evf", "/etc/hostname"); page.fill("#evt", "bad"); page.click("button:has-text('Upload')")
     expect(page.locator("p[role=alert]").first).to_contain_text("not allowed")
 
+    # AI assistant (mock provider): output is labelled, citations shown, accepting records a decision but changes nothing
+    page.click("button:has-text('Summarise timeline')")
+    expect(page.get_by_text("AI-generated suggestion. Not verified").nth(1)).to_be_visible()
+    expect(page.get_by_text("MOCK OUTPUT")).to_be_visible()
+    page.click("button:has-text('Mark as accepted')"); expect(page.locator("span.badge", has_text="accepted")).to_be_visible()
+    expect(page.locator("ol li").first).to_contain_text("<img src=x")  # the timeline itself is untouched
+
     # French + theme switch
     page.click("button[aria-label='Language']"); expect(page.get_by_role("link", name="Enquêtes")).to_be_visible()
     page.click("button[aria-label='Thème']"); assert page.evaluate("document.documentElement.classList.contains('dark')") is False

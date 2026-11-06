@@ -104,7 +104,7 @@ def list_evidence(inv_id: int, include_archived: bool = False, ctx: Ctx = Depend
 @router.post("/investigations/{inv_id}/evidence", status_code=201)
 def upload_evidence(inv_id: int, file: UploadFile = File(...), title: str = Form(..., min_length=1, max_length=255), description: str = Form("", max_length=5000),
                     restricted: bool = Form(False), entry_id: int | None = Form(None), ctx: Ctx = Depends(get_ctx)):
-    inv, _ = _load(ctx, inv_id, "write")
+    inv, level = _load(ctx, inv_id, "write")
     if not ctx.can("evidence.upload"):
         raise HTTPException(403, "Permission denied")
     if restricted and not ctx.can("evidence.restrict"):
@@ -117,7 +117,7 @@ def upload_evidence(inv_id: int, file: UploadFile = File(...), title: str = Form
         raise HTTPException(422, "File type not allowed. Allowed: " + ", ".join(sorted(ALLOWED)))
     kind, sniff = ALLOWED[ext]
     if entry_id is not None:
-        ok = ctx.db.scalar(select(m.InvestigationEntry.id).where(m.InvestigationEntry.id == entry_id, m.InvestigationEntry.investigation_id == inv.id, entry_visible_filter(ctx)))
+        ok = ctx.db.scalar(select(m.InvestigationEntry.id).where(m.InvestigationEntry.id == entry_id, m.InvestigationEntry.investigation_id == inv.id, entry_visible_filter(ctx, level)))
         if ok is None:
             raise HTTPException(422, "Unknown timeline entry")
     limit = get_settings().MAX_UPLOAD_MB * 1024 * 1024
