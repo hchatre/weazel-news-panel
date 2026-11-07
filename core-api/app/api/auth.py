@@ -28,12 +28,15 @@ def login(data: LoginIn, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Password login is disabled in this mode")
     email = data.email.strip().lower()
     key = f"{request.client.host if request.client else '?'}|{email}"
-    if login_limiter.blocked(key, s.LOGIN_MAX_ATTEMPTS, s.LOGIN_WINDOW_SECONDS):
+    ip_key = f"ip|{request.client.host if request.client else '?'}"  # stops password spraying across many accounts
+    if (login_limiter.blocked(key, s.LOGIN_MAX_ATTEMPTS, s.LOGIN_WINDOW_SECONDS)
+            or login_limiter.blocked(ip_key, s.LOGIN_MAX_ATTEMPTS * 5, s.LOGIN_WINDOW_SECONDS)):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many attempts, try again later")
     user = db.scalar(select(m.User).where(func.lower(m.User.email) == email))
     ok = verify_password(data.password, user.password_hash if user else None)
     if not ok or user is None or not user.is_active:
         login_limiter.hit(key)
+        login_limiter.hit(ip_key)
         audit.record(db, None, "auth.login_failed", "user", user.id if user else None, detail={"email": email[:80]})
         db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")  # same answer for every failure

@@ -287,7 +287,7 @@ def export_audit(action: str | None = None, ctx: Ctx = Depends(require("audit.re
     w.writerow(["id", "at", "actor_id", "action", "entity_type", "entity_id"])
     for r in db.scalars(select(m.AuditLog).where(cond).order_by(m.AuditLog.id).limit(50000)):
         # spreadsheet formula injection guard on every free-text field
-        w.writerow([r.id, r.at.isoformat(), r.actor_id, *[("'" + v if str(v or "")[:1] in "=+-@" else v) for v in (r.action, r.entity_type, r.entity_id)]])
+        w.writerow([r.id, r.at.isoformat(), r.actor_id, *[("'" + v if str(v or "")[:1] in ("=", "+", "-", "@", "\t", "\r") else v) for v in (r.action, r.entity_type, r.entity_id)]])
     audit.record(db, ctx.user, "audit.export", "audit", None)
     db.commit()
     return Response(buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=audit.csv"})

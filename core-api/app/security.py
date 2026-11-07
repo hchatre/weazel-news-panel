@@ -13,10 +13,20 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode()[:72], bcrypt.gensalt()).decode()
 
 
+_DUMMY: bytes | None = None
+
+
+def _dummy_hash() -> bytes:
+    global _DUMMY
+    if _DUMMY is None:
+        _DUMMY = bcrypt.hashpw(b"y", bcrypt.gensalt())  # default cost, same as hash_password
+    return _DUMMY
+
+
 def verify_password(password: str, hashed: str | None) -> bool:
     if not hashed:
-        # constant-ish work so an unknown account is not distinguishable by timing
-        bcrypt.checkpw(b"x", bcrypt.hashpw(b"y", bcrypt.gensalt(rounds=4)))
+        # same work factor as a real check, so an unknown account is not distinguishable by timing
+        bcrypt.checkpw(b"x", _dummy_hash())
         return False
     try:
         return bcrypt.checkpw(password.encode()[:72], hashed.encode())

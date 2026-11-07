@@ -98,3 +98,24 @@ def test_local_mode_resolves_single_admin_without_token(db, monkeypatch):
     monkeypatch.setattr(deps, "get_settings", lambda: S)
     r = TestClient(app).get(f"{API}/auth/me")
     assert r.status_code == 200 and r.json()["role"]["key"] == "system_admin"
+
+
+def test_password_spraying_across_accounts_hits_the_per_ip_limit(client, w):
+    # one wrong guess per account never trips the per-account limiter, but the per-IP limiter must
+    codes = [client.post(f"{API}/auth/login", json={"email": f"victim{i}@weazel.test", "password": "guess"}).status_code for i in range(30)]
+    assert 429 in codes and codes.index(429) <= 26
+
+
+def test_unknown_account_pays_the_same_bcrypt_cost():
+    import time
+    from app.security import hash_password, verify_password
+    real = hash_password("correct horse battery")
+    t0 = time.perf_counter(); verify_password("x", real); real_t = time.perf_counter() - t0
+    t0 = time.perf_counter(); verify_password("x", None); ghost_t = time.perf_counter() - t0
+    assert ghost_t > real_t * 0.5  # the old dummy used cost 4 (~250x faster)
+
+
+def test_fivem_mode_also_refuses_a_placeholder_jwt_secret():
+    # fivem mode issues the same JWTs as password mode; a known secret would let anyone forge a token
+    with pytest.raises(ValueError):
+        Settings(AUTH_MODE="fivem", ENVIRONMENT="production", BRIDGE_SECRET="b" * 40, JWT_SECRET="change-me-to-a-long-random-string")

@@ -64,7 +64,7 @@ class Settings(BaseSettings):
             raise ValueError("WEAZEL_DISCORD_WEBHOOK_PUBLISH must be a Discord webhook URL (https://discord.com/api/webhooks/...)")
         if self.AUTH_MODE == "local" and self.ENVIRONMENT == "production":
             raise ValueError("WEAZEL_AUTH_MODE=local is not allowed when WEAZEL_ENVIRONMENT=production")
-        if self.AUTH_MODE == "password" and self.ENVIRONMENT != "test":
+        if self.AUTH_MODE in {"password", "fivem"} and self.ENVIRONMENT != "test":  # fivem signs the same JWTs
             if self.JWT_SECRET == PLACEHOLDER_SECRET or len(self.JWT_SECRET) < 32:
                 raise ValueError("Set WEAZEL_JWT_SECRET to a random string of at least 32 characters")
         if self.AI_PROVIDER not in {"none", "mock", "ollama", "openai_compat"}:
