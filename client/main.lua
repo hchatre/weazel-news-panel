@@ -1,30 +1,39 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local panelOpen = false
 
+-- The server decides whether this player may open the panel (job / public access); the client only reacts.
 RegisterCommand('weazel', function()
     if panelOpen then return end
-    panelOpen = true
-    SetNuiFocus(true, true)
-    SetPlayerControl(PlayerId(), false, 0)
-    SendNUIMessage({ action = "open" })
     TriggerServerEvent("weazel:server:openPanel")
 end)
 
 local function ClosePanel()
+    if not panelOpen then return end
     panelOpen = false
     SetNuiFocus(false, false)
     SetPlayerControl(PlayerId(), true, 0)
     SendNUIMessage({ action = "close" })
 end
 
--- Fermeture avec la touche Échap
-Citizen.CreateThread(function()
-    while true do
-        Citizen.Wait(0)
-        if panelOpen and IsControlJustPressed(0, 322) then
-            ClosePanel()
+RegisterNetEvent("weazel:client:open", function()
+    if panelOpen then return end
+    panelOpen = true
+    SetNuiFocus(true, true)
+    SetPlayerControl(PlayerId(), false, 0)
+    SendNUIMessage({ action = "open" })
+    -- Escape handling only runs while the panel is open.
+    CreateThread(function()
+        while panelOpen do
+            Wait(0)
+            if IsControlJustPressed(0, 322) then ClosePanel() end
         end
-    end
+    end)
+end)
+
+AddEventHandler("onResourceStop", function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+    SetNuiFocus(false, false)
+    SetPlayerControl(PlayerId(), true, 0)
 end)
 
 RegisterNUICallback("close", function(_, cb)
@@ -124,7 +133,7 @@ RegisterNUICallback("deleteDraft", function(data, cb)
 end)
 
 RegisterNUICallback("publishDraft", function(data, cb)
-    TriggerServerEvent("weazel:server:publishDraft", data.id)
+    TriggerServerEvent("weazel:server:publishDraft", data)
     cb({})
 end)
 
