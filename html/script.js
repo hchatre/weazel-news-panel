@@ -89,16 +89,51 @@ function showArticleNotification(notification) {
     setTimeout(() => notif.remove(), 10000);
 }
 
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+// Shows the in-game time sent by the client (falls back to the computer's clock when none is given, e.g. in a browser).
+function setLockClock(c) {
+    const now = new Date();
+    const h = c ? Number(c.h) : now.getHours(), m = c ? Number(c.m) : now.getMinutes();
+    const dow = c ? Number(c.dow) : now.getDay(), d = c ? Number(c.d) : now.getDate(), mo = c ? Number(c.mo) : now.getMonth();
+    document.getElementById("lockTime").textContent = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+    document.getElementById("lockDay").textContent = (DAYS[dow] || "") + ", " + d + " " + (MONTHS[mo] || "");
+}
+
+// The newest headlines, as notifications on the lock screen. Text only, never HTML.
+function renderLockNews(entries) {
+    const box = document.getElementById("lockNews");
+    box.textContent = "";
+    (entries || []).slice(0, 3).forEach((a) => {
+        const card = el("div", "lock-card");
+        card.appendChild(el("small", "", "Weazel News" + (a.category ? " \u00b7 " + a.category : "")));
+        card.appendChild(el("strong", "", String(a.title || "")));
+        box.appendChild(card);
+    });
+}
+
+function unlockTablet() { document.getElementById("tablet").classList.remove("locked"); }
+function lockTablet() { document.getElementById("tablet").classList.add("locked"); document.getElementById("lock").focus(); }
+
 window.addEventListener("message", (event) => {
     const data = event.data;
     if (!data) return;
 
     if (data.action === "open") {
+        const tablet = document.getElementById("tablet");
+        tablet.hidden = false;
+        tablet.classList.add("locked");   // always starts on the lock screen
         document.getElementById("app").style.display = "block";
+        setLockClock(data.clock);
         showPage("home");
+        document.getElementById("lock").focus();
     }
+    if (data.action === "clock") setLockClock(data.clock);
     if (data.action === "close") {
+        document.getElementById("tablet").hidden = true;
         document.getElementById("app").style.display = "none";
+        document.getElementById("lockNews").textContent = "";
         userRole = "public";
         userGrade = 0;
         userName = "";
@@ -134,7 +169,7 @@ window.addEventListener("message", (event) => {
         const dossierCreate = document.querySelector('.dossier-create');
         if (dossierCreate) dossierCreate.style.display = (isJournalist && userGrade >= 1) ? "flex" : "none";
     }
-    if (data.action === "setLatestNews") renderLatest(data.entries);
+    if (data.action === "setLatestNews") { renderLatest(data.entries); renderLockNews(data.entries); }
     if (data.action === "setDrafts") renderDrafts(data.drafts);
     if (data.action === "setPending") renderPending(data.pending);
     if (data.action === "setDossiers") renderDossiers(data.dossiers);
@@ -631,9 +666,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("backToHome").onclick = () => showPage("home");
     document.getElementById("close").onclick = () => fetchNUI("close", {});
+    const lockEl = document.getElementById("lock");
+    lockEl.addEventListener("click", unlockTablet);
+    lockEl.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); unlockTablet(); } });
+    document.getElementById("homeBar").addEventListener("click", lockTablet);
 
     document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && document.getElementById("app").style.display === "block") {
+        if (e.key === "Escape" && !document.getElementById("tablet").hidden) {
             fetchNUI("close", {});
         }
     });
