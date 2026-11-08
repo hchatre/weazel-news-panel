@@ -5,11 +5,13 @@ import unittest
 
 from harness import Env, standard_players
 
-HOOKS = {
+# Old convars: still set on some servers. They must now be ignored: nothing is ever posted to Discord.
+OLD_HOOKS = {
     "weazel_webhook_publish_1": "https://discord.test/api/webhooks/1/aaa",
     "weazel_webhook_publish_2": "https://discord.test/api/webhooks/2/bbb",
     "weazel_webhook_log": "https://discord.test/api/webhooks/3/ccc",
 }
+HOOKS = {}
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 
 
@@ -87,12 +89,10 @@ class Approval(unittest.TestCase):
         self.assertEqual(e.sent("weazel:client:articleNotification"), [])
 
     def test_approve_pending_publishes_and_notifies_once(self):
-        e = env(convars=HOOKS)
+        e = env(convars=OLD_HOOKS)
         e.respond("query", "WHERE id=? AND status='pending'", self.PENDING)
         e.fire("weazel:server:approvePending", 4, 9)
         self.assertTrue(any("status='published'" in s for s in e.writes("rp_articles")))
-        urls = [u for u, _ in e.http]
-        self.assertEqual(sorted(urls)[0:2], [HOOKS["weazel_webhook_publish_1"], HOOKS["weazel_webhook_publish_2"]])
         self.assertEqual(len(e.sent("weazel:client:articleNotification")), 8)  # every online player, once
 
     def test_below_editor_cannot_approve(self):
@@ -112,13 +112,12 @@ class Approval(unittest.TestCase):
         e.fire("weazel:server:approvePending", 4, 9)
         self.assertNotEqual(e.writes("rp_articles"), [])
 
-    def test_webhook_payloads_cannot_ping_anyone(self):
-        e = env(convars=HOOKS)
+    def test_nothing_is_ever_posted_to_a_web_hook_even_if_old_convars_are_still_set(self):
+        e = env(convars=OLD_HOOKS)
         e.respond("query", "WHERE id=? AND status='pending'", [dict(self.PENDING[0], title="@everyone", content="@here")])
         e.fire("weazel:server:approvePending", 4, 9)
-        self.assertTrue(e.http)
-        for _, body in e.http:
-            self.assertEqual(body["allowed_mentions"], {"parse": []})
+        self.assertEqual(e.http, [])
+        self.assertEqual(len(e.sent("weazel:client:articleNotification")), 8)   # players are told in game instead
 
 
 class StaffActions(unittest.TestCase):
@@ -235,9 +234,10 @@ class Content(unittest.TestCase):
         e = env()
         e.fire("weazel:server:publishArticle", 3, {"title": "T", "content": "C"})
         self.assertIn("'pending'", " ".join(s for k, s, p in e.sql) + str([p for k, s, p in e.sql]))
-        e = env(convars=HOOKS)
+        e = env(convars=OLD_HOOKS)
         e.fire("weazel:server:publishArticle", 4, {"title": "T", "content": "C"})
-        self.assertTrue(e.http)  # editor publishes directly and it goes to Discord
+        self.assertEqual(e.http, [])  # editor publishes directly; players are told in game, nothing goes to Discord
+        self.assertTrue(e.sent("weazel:client:articleNotification"))
 
     def test_publish_draft_saves_form_edits_first(self):
         e = env()

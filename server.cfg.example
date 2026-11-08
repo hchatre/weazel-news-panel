@@ -1,10 +1,6 @@
 # Add to your server.cfg. Never commit your real values.
-# Create NEW webhooks in Discord (Channel settings > Integrations > Webhooks). The old ones were published
-# in the public repository and must be deleted.
-
-set weazel_webhook_publish_1 "https://discord.com/api/webhooks/REPLACE_ID/REPLACE_TOKEN"
-set weazel_webhook_publish_2 "https://discord.com/api/webhooks/REPLACE_ID/REPLACE_TOKEN"
-set weazel_webhook_log       "https://discord.com/api/webhooks/REPLACE_ID/REPLACE_TOKEN"
+# No Discord webhooks any more: news is delivered in game (LB Phone notification, or an on-screen notice).
+# If your server.cfg still has weazel_webhook_* lines from the old version, delete them (they are ignored).
 
 # 1 (default) = any player can read, like and comment (previous behaviour). 0 = journalists only.
 set weazel_public_access 1
@@ -19,3 +15,5 @@ ensure qb-weazel-ui   # use your real resource folder name
 # Must be at least 32 random characters and identical to WEAZEL_BRIDGE_SECRET on the API. Never commit the real value.
 set weazel_api_url "http://127.0.0.1:8000"
 set weazel_bridge_secret "REPLACE_WITH_32_PLUS_RANDOM_CHARACTERS"
+# How often (seconds, minimum 5) the game server asks the web platform what is new for the players online.
+set weazel_news_poll_seconds 20

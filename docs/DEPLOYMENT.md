@@ -4,7 +4,7 @@ Untested on a real FiveM server; the commands below were exercised only in a Lin
 
 ## Services
 - PostgreSQL 16 (authoritative store). API: `uvicorn app.main:app --host 127.0.0.1 --port 8000` from `core-api`.
-- Worker (Discord outbox): `python -m app.worker`. Web: `npm run build && npm run start` in `core-api/web`.
+- Web: `npm run build && npm run start` in `web`. There is no worker: news reaches players in game because the game server polls the API (see `docs/in-game-news.md`).
 - Keep the API bound to 127.0.0.1. The FiveM resource and the web app are the only clients.
 
 ## First run
@@ -29,6 +29,6 @@ Back up first. `git pull` equivalent, `pip install -r requirements.txt`, `alembi
 - Production refuses local auth mode, the mock AI provider and placeholder secrets.
 
 ## Health, logs, limits
-- Keep an eye on the Discord outbox page in the admin Integrations screen (dead messages need a look).
+- The admin Integrations screen shows whether the bridge, in-game news and AI are configured.
 - Rate limiters are per process; run one API process.
 - Not covered: antivirus or EXIF stripping on uploads, refresh tokens (sessions last 30 minutes), TLS (use a reverse proxy if exposed beyond localhost).

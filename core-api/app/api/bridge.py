@@ -14,6 +14,7 @@ from app import models as m
 from app.api.common import clean_text
 from app.config import get_settings
 from app.db import get_db
+from app.permissions import PUBLIC_STATUSES
 from app.security import create_access_token, login_limiter
 from app.services import audit
 from app.services.bridge import verified_body
@@ -152,3 +153,36 @@ async def staff_ids(body: bytes = Depends(verified_body), db: Session = Depends(
     changed, so a dismissal made while the player was offline still reaches the platform."""
     rows = db.scalars(select(m.User.citizen_id).where(m.User.citizen_id.is_not(None), m.User.source.in_(["fivem", "legacy"])).order_by(m.User.id).limit(2000))
     return {"citizenids": list(rows)}
+
+
+class PollIn(BaseModel):
+    since: datetime | None = None
+    online: list[str] = Field(default_factory=list, max_length=300)
+
+
+@router.post("/bridge/news/poll")
+async def poll_news(body: bytes = Depends(verified_body), db: Session = Depends(get_db)):
+    """In-game delivery, pull model (same as the DOJ tablet): the game server asks what is new for the players who are ONLINE.
+    Nothing is pushed to the game server and no Discord is involved. Only short titles leave the API.
+    - `broadcast`: articles published since the cursor, for every online player (public news, same rule as /public).
+    - `personal`: notifications created since the cursor for online staff (they already carry only what that person could read).
+    The first call (no cursor) returns only the new cursor, so a restart never replays old news."""
+    data = _parse(PollIn, body)
+    s = get_settings()
+    now = datetime.now(timezone.utc)
+    if data.since is None:
+        return {"now": now, "broadcast": [], "personal": []}
+    since = data.since if data.since.tzinfo else data.since.replace(tzinfo=timezone.utc)
+    ids = list(dict.fromkeys(c for c in data.online if CID.match(c)))
+    if not ids:
+        return {"now": now, "broadcast": [], "personal": []}
+    limit = s.NEWS_POLL_MAX_ITEMS
+    arts = db.scalars(select(m.Article).where(m.Article.status.in_(PUBLIC_STATUSES), m.Article.published_at > since, m.Article.published_at <= now)
+                      .order_by(m.Article.published_at.asc()).limit(limit))
+    broadcast = [{"article_id": a.id, "title": a.title[:120]} for a in arts]
+    rows = db.execute(select(m.Notification, m.User.citizen_id).join(m.User, m.User.id == m.Notification.user_id)
+                      .where(m.Notification.created_at > since, m.Notification.created_at <= now, m.User.citizen_id.in_(ids),
+                             m.User.is_active.is_(True), m.User.role_id.is_not(None))
+                      .order_by(m.Notification.id.asc()).limit(limit))
+    personal = [{"citizenid": cid, "title": n.title[:120]} for n, cid in rows]
+    return {"now": now, "broadcast": broadcast, "personal": personal}

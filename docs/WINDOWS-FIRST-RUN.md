@@ -29,9 +29,8 @@ Needs read access to the old MySQL (see the importer's --help for connection set
 ## 5. FiveM
 Copy the resource folder into `resources`, `ensure weazel-news-panel`, put the same bridge secret in server.cfg (see `server.cfg.example`), restart. Then walk through the in-game checklist in `docs/phase-5b-lbphone.md` (LB Phone 2.8.1, unverified).
 
-## 6. Worker (Discord, optional)
-    python -m app.worker
-Set WEAZEL_DISCORD_WEBHOOK_PUBLISH in `.env` with a NEW webhook (the old ones are public).
+## 6. In-game news
+Nothing to run. Once the resource has the bridge secret, the game server polls the API every 20 s and shows new articles to online players (LB Phone notification, or an on-screen notice). See `docs/in-game-news.md`.
 
 ## 7. Tests
     pytest        # needs Postgres; the Lua and browser tests need extra tools, see docs/phase-1-audit.md

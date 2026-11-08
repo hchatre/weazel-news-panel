@@ -33,6 +33,8 @@ Legend: DONE = changed and covered by an automated test. DONE* = changed, not te
 2. Put the new URLs only in `server.cfg` (not in the repo).
 3. Search your own history/forks for the old URLs; deleting a webhook is the only real fix.
 
+> Phase 6: Discord publishing and the Discord log were removed entirely (nothing is posted to Discord). The three old webhook URLs are still public in the old `main` history, so they must still be deleted in Discord.
+
 ## Phase 5 additions (bridge, sync, Discord)
 - [x] Bridge requests are HMAC-signed with timestamp + nonce; replay, tamper, stale and wrong-path requests are refused (tests, incl. Node↔API)
 - [x] Identity for in-game sign-in is taken from the server-side player, never from a client value

@@ -3,14 +3,8 @@ local QBCore = exports['qb-core']:GetCoreObject()
 -- ==============================
 -- CONFIGURATION (server.cfg convars, nothing secret lives in this file)
 -- ==============================
---   set weazel_webhook_publish_1 "https://discord.com/api/webhooks/..."
---   set weazel_webhook_publish_2 "https://discord.com/api/webhooks/..."
---   set weazel_webhook_log       "https://discord.com/api/webhooks/..."
 --   setr weazel_public_access 1        # 1 = any player can read/like/comment (original behaviour), 0 = reporters only
 --   set  weazel_block_self_approval 0  # 1 = an editor cannot approve their own pending article
-local WEBHOOK_PUBLISH_1 = GetConvar('weazel_webhook_publish_1', '')
-local WEBHOOK_PUBLISH_2 = GetConvar('weazel_webhook_publish_2', '')
-local WEBHOOK_LOG       = GetConvar('weazel_webhook_log', '')
 local PUBLIC_ACCESS       = GetConvarInt('weazel_public_access', 1) == 1
 local BLOCK_SELF_APPROVAL = GetConvarInt('weazel_block_self_approval', 0) == 1
 
@@ -134,54 +128,17 @@ local function getGradeName(level)
 end
 
 -- ==============================
--- DISCORD
+-- ACTION LOG
 -- ==============================
-local function postWebhook(url, payload)
-    if not url or url == '' then return end
-    payload.allowed_mentions = { parse = {} } -- article/comment text can never ping @everyone or roles
-    PerformHttpRequest(url, function(err)
-        if err ~= 200 and err ~= 204 then
-            print('[WEAZEL] Discord webhook failed: HTTP ' .. tostring(err))
-        end
-    end, 'POST', json.encode(payload), { ['Content-Type'] = 'application/json' })
-end
-
+-- No Discord webhooks any more. Staff actions go to the server console; the web platform keeps the audit trail.
 local function clip(s, n)
     s = tostring(s or '')
     if #s > n then return s:sub(1, n) .. '...' end
     return s
 end
 
-local function sendDiscordLog(title, description, color, fields)
-    local embed = {
-        title = title,
-        description = clip(description, 1800),
-        color = color or 3092790,
-        timestamp = os.date('!%Y-%m-%dT%H:%M:%SZ'),
-        footer = { text = 'Weazel News Logs' },
-    }
-    if fields and #fields > 0 then embed.fields = fields end
-    postWebhook(WEBHOOK_LOG, { username = 'Weazel News Logger', embeds = { embed } })
-end
-
-local function sendArticleToDiscord(article)
-    local embed = {
-        title = clip(article.title, 250),
-        description = clip(article.content, 500),
-        color = 16711680,
-        author = { name = clip(article.author or 'Weazel News', 250) },
-        fields = {
-            { name = 'Category', value = clip(article.category or 'breaking', 100), inline = true },
-            { name = 'Date', value = os.date('%Y-%m-%d %H:%M'), inline = true },
-        },
-        footer = { text = 'Weazel News' },
-        timestamp = os.date('!%Y-%m-%dT%H:%M:%SZ'),
-    }
-    local img = cleanImage(article.image)
-    if img then embed.image = { url = img } end
-    local payload = { username = 'Weazel News', embeds = { embed } }
-    postWebhook(WEBHOOK_PUBLISH_1, payload)
-    postWebhook(WEBHOOK_PUBLISH_2, payload)
+local function logAction(title, description)
+    print(('[WEAZEL] %s: %s'):format(title, (clip(description, 300):gsub('%*%*', ''))))
 end
 
 -- Blocked privileged actions are logged so abuse is visible (one log per player per minute).
@@ -189,7 +146,7 @@ local function deny(src, event, reason)
     print(('[WEAZEL] blocked %s from %s: %s'):format(event, tostring(src), reason))
     if not limited(src, 'deny-log', 1, 60000) then
         local c = ctx(src)
-        sendDiscordLog('Blocked action',
+        logAction('Blocked action',
             ('**%s** (%s) was blocked on `%s`: %s'):format(c and c.name or 'unknown', tostring(src), event, reason), 16711680)
     end
 end
@@ -359,9 +316,6 @@ CreateThread(function()
     if not HAS_AUTHOR_CID then
         print('^3[WEAZEL] sql/001_author_citizenid.sql not applied: draft ownership falls back to the character name.^7')
     end
-    if WEBHOOK_LOG == '' and WEBHOOK_PUBLISH_1 == '' and WEBHOOK_PUBLISH_2 == '' then
-        print('^3[WEAZEL] No Discord webhook convars set: Discord publishing and logging are off.^7')
-    end
 end)
 
 -- ==============================
@@ -472,7 +426,7 @@ RegisterNetEvent('weazel:server:saveDraft', function(data)
     if not a then return notify(src, 'Invalid article') end
 
     local insertId = insertArticle(c, a, 'draft')
-    sendDiscordLog('Draft Created',
+    logAction('Draft Created',
         ('**%s** created a new draft: **%s** (ID: %s)'):format(c.name, a.title, tostring(insertId)), 3447003,
         { { name = 'Category', value = a.category, inline = true }, { name = 'Status', value = 'Draft', inline = true } })
     refreshDraftsForReporter()
@@ -493,7 +447,7 @@ RegisterNetEvent('weazel:server:updateDraft', function(data)
 
     MySQL.update.await('UPDATE rp_articles SET title=?, content=?, category=?, image=? WHERE id=? AND status=\'draft\'',
         { a.title, a.content, a.category, a.image, id })
-    sendDiscordLog('Draft Updated', ('**%s** updated draft ID **%s**: **%s**'):format(c.name, id, a.title), 16763904)
+    logAction('Draft Updated', ('**%s** updated draft ID **%s**: **%s**'):format(c.name, id, a.title), 16763904)
     refreshDraftsForReporter()
 end)
 
@@ -509,7 +463,7 @@ RegisterNetEvent('weazel:server:deleteDraft', function(id)
     if c.rank == 1 and not isOwner(draft, c) then return notify(src, 'You can only delete your own drafts') end
 
     MySQL.update.await("DELETE FROM rp_articles WHERE id=? AND status='draft'", { id })
-    sendDiscordLog('Draft Deleted', ('**%s** deleted draft ID **%s**'):format(c.name, id), 16711680)
+    logAction('Draft Deleted', ('**%s** deleted draft ID **%s**'):format(c.name, id), 16711680)
     refreshDraftsForReporter()
 end)
 
@@ -554,15 +508,14 @@ RegisterNetEvent('weazel:server:publishArticle', function(data)
     local insertId = insertArticle(c, a, status)
 
     if status == 'pending' then
-        sendDiscordLog('Article Submitted for Review',
+        logAction('Article Submitted for Review',
             ('**%s** submitted an article for review: **%s** (ID: %s)'):format(c.name, a.title, tostring(insertId)), 16763904,
             { { name = 'Category', value = a.category, inline = true }, { name = 'Status', value = 'Pending', inline = true } })
         refreshPendingForReporter()
     else
         local article = { id = insertId, title = a.title, author = c.name, category = a.category, content = a.content, image = a.image }
         sendArticleNotification(article)
-        sendArticleToDiscord(article)
-        sendDiscordLog('Article Published', ('**%s** published a new article'):format(c.name), 65280, {
+        logAction('Article Published', ('**%s** published a new article'):format(c.name), 65280, {
             { name = 'Title', value = clip(a.title, 200), inline = true },
             { name = 'Category', value = a.category, inline = true },
             { name = 'Author', value = c.name, inline = true },
@@ -582,7 +535,7 @@ RegisterNetEvent('weazel:server:approvePending', function(id)
     id = toId(id)
     if not id then return end
 
-    -- Only a pending article can be approved: the notification and Discord post must never fire for a draft or an already published article.
+    -- Only a pending article can be approved: the in-game notification must never fire for a draft or an already published article.
     local rows = MySQL.query.await(
         "SELECT id, title, author, category, content, image" .. ownerCols() .. " FROM rp_articles WHERE id=? AND status='pending'", { id })
     local article = rows and rows[1]
@@ -592,12 +545,11 @@ RegisterNetEvent('weazel:server:approvePending', function(id)
     local affected = MySQL.update.await("UPDATE rp_articles SET status='published' WHERE id=? AND status='pending'", { id })
     if not affected or affected < 1 then return end
 
-    sendDiscordLog('Article Approved', ('**%s** approved an article for publication'):format(c.name), 16776960, {
+    logAction('Article Approved', ('**%s** approved an article for publication'):format(c.name), 16776960, {
         { name = 'Title', value = clip(article.title, 200), inline = true },
         { name = 'Author', value = article.author or '?', inline = true },
     })
     sendArticleNotification(article)
-    sendArticleToDiscord(article)
     broadcastLatestNews()
     refreshPendingForReporter()
 end)
@@ -611,7 +563,7 @@ RegisterNetEvent('weazel:server:deletePending', function(id)
 
     local affected = MySQL.update.await("DELETE FROM rp_articles WHERE id=? AND status='pending'", { id })
     if affected and affected > 0 then
-        sendDiscordLog('Pending Article Deleted', ('**%s** deleted a pending article (ID: %s)'):format(c.name, id), 16711680)
+        logAction('Pending Article Deleted', ('**%s** deleted a pending article (ID: %s)'):format(c.name, id), 16711680)
     end
     refreshPendingForReporter()
 end)
@@ -630,7 +582,7 @@ RegisterNetEvent('weazel:server:deleteArticle', function(id)
     if result and result > 0 then
         TriggerClientEvent('weazel:client:articleDeleted', -1, id)
         notify(src, 'Article deleted successfully', 'success')
-        sendDiscordLog('Article Deleted', ('**%s** deleted article ID **%s**'):format(c.name, id), 16711680)
+        logAction('Article Deleted', ('**%s** deleted article ID **%s**'):format(c.name, id), 16711680)
     else
         notify(src, 'Article not found')
     end
@@ -660,7 +612,7 @@ RegisterNetEvent('weazel:server:createDossier', function(title)
         INSERT INTO rp_dossiers (title, citizenid, created_by, created_job, created_at, archived)
         VALUES (?, ?, ?, ?, NOW(), 0)
     ]], { title, c.citizenid, c.name, c.Player.PlayerData.job.name })
-    sendDiscordLog('Dossier Created', ('**%s** created a new dossier: **%s**'):format(c.name, title), 65280)
+    logAction('Dossier Created', ('**%s** created a new dossier: **%s**'):format(c.name, title), 65280)
     refreshDossiersForReporter()
 end)
 
@@ -673,7 +625,7 @@ RegisterNetEvent('weazel:server:renameDossier', function(data)
     if not id or not title then return end
 
     MySQL.update.await('UPDATE rp_dossiers SET title=? WHERE id=? AND archived=0', { title, id })
-    sendDiscordLog('Dossier Renamed', ('**%s** renamed dossier ID **%s** to **%s**'):format(c.name, id, title), 16776960)
+    logAction('Dossier Renamed', ('**%s** renamed dossier ID **%s** to **%s**'):format(c.name, id, title), 16776960)
     refreshDossiersForReporter()
 end)
 
@@ -685,7 +637,7 @@ RegisterNetEvent('weazel:server:deleteDossier', function(id)
     if not id then return end
 
     MySQL.update.await('UPDATE rp_dossiers SET archived=1 WHERE id=?', { id })
-    sendDiscordLog('Dossier Deleted', ('**%s** deleted dossier ID **%s**'):format(c.name, id), 16711680)
+    logAction('Dossier Deleted', ('**%s** deleted dossier ID **%s**'):format(c.name, id), 16711680)
     refreshDossiersForReporter()
 end)
 
@@ -716,7 +668,7 @@ RegisterNetEvent('weazel:server:addEntry', function(data)
         INSERT INTO rp_dossier_entries (dossier_id, entry_type, content, author, author_job, created_at)
         VALUES (?, ?, ?, ?, ?, NOW())
     ]], { id, status, content, c.name, c.Player.PlayerData.job.name })
-    sendDiscordLog('Dossier Entry Added', ('**%s** added a **%s** entry to dossier ID **%s**'):format(c.name, status, id), 65280,
+    logAction('Dossier Entry Added', ('**%s** added a **%s** entry to dossier ID **%s**'):format(c.name, status, id), 65280,
         { { name = 'Content', value = clip(content, 100), inline = false } })
     TriggerClientEvent('weazel:client:setTimeline', src, fetchTimeline(id))
 end)
@@ -733,7 +685,7 @@ RegisterNetEvent('weazel:server:deleteEntry', function(entryId)
     local dossierId = rows[1].dossier_id
 
     MySQL.update.await('DELETE FROM rp_dossier_entries WHERE id=?', { entryId })
-    sendDiscordLog('Dossier Entry Deleted', ('**%s** deleted entry ID **%s**'):format(c.name, entryId), 16711680)
+    logAction('Dossier Entry Deleted', ('**%s** deleted entry ID **%s**'):format(c.name, entryId), 16711680)
     TriggerClientEvent('weazel:client:setTimeline', src, fetchTimeline(dossierId))
 end)
 
@@ -750,7 +702,7 @@ RegisterNetEvent('weazel:server:changeEntryType', function(data)
     if not rows or #rows == 0 then return end
 
     MySQL.update.await('UPDATE rp_dossier_entries SET entry_type=? WHERE id=?', { newType, entryId })
-    sendDiscordLog('Dossier Entry Type Changed',
+    logAction('Dossier Entry Type Changed',
         ('**%s** changed entry ID **%s** to type **%s**'):format(c.name, entryId, newType), 16776960)
     TriggerClientEvent('weazel:client:setTimeline', src, fetchTimeline(rows[1].dossier_id))
 end)
@@ -782,7 +734,7 @@ RegisterNetEvent('weazel:server:likeArticle', function(articleId)
         liked = true
     end
 
-    sendDiscordLog(liked and 'Article Liked' or 'Article Unliked',
+    logAction(liked and 'Article Liked' or 'Article Unliked',
         ('**%s** %s article **%s** (ID: %s)'):format(c.name, liked and 'liked' or 'unliked', title, articleId),
         liked and 65280 or 16711680)
 
@@ -811,7 +763,7 @@ RegisterNetEvent('weazel:server:addComment', function(data)
         VALUES (?, ?, ?, ?)
     ]], { articleId, c.citizenid, c.name, text })
 
-    sendDiscordLog('Comment Added', ('**%s** commented on article **%s** (ID: %s)'):format(c.name, title, articleId), 3092790,
+    logAction('Comment Added', ('**%s** commented on article **%s** (ID: %s)'):format(c.name, title, articleId), 3092790,
         { { name = 'Comment', value = clip(text, 200), inline = false } })
 
     TriggerClientEvent('weazel:client:updateComments', -1, { articleId = articleId, comments = fetchComments(articleId) })
@@ -833,7 +785,7 @@ RegisterNetEvent('weazel:server:deleteComment', function(commentId)
     end
 
     MySQL.update.await('DELETE FROM article_comments WHERE id = ?', { commentId })
-    sendDiscordLog('Comment Deleted', ('**%s** deleted a comment (ID: %s)'):format(c.name, commentId), 16711680)
+    logAction('Comment Deleted', ('**%s** deleted a comment (ID: %s)'):format(c.name, commentId), 16711680)
     TriggerClientEvent('weazel:client:updateComments', -1,
         { articleId = comment.article_id, comments = fetchComments(comment.article_id) })
 end)
@@ -887,7 +839,7 @@ RegisterNetEvent('weazel:server:recruit', function(targetSrc)
     target.Functions.SetJob(JOB, 0)
     TriggerClientEvent('QBCore:Notify', targetSrc, 'You have been recruited by Weazel News', 'success')
     local t = ctx(targetSrc)
-    sendDiscordLog('Journalist Recruited', ('**%s** recruited **%s** as Intern'):format(c.name, t and t.name or tostring(targetSrc)), 65280)
+    logAction('Journalist Recruited', ('**%s** recruited **%s** as Intern'):format(c.name, t and t.name or tostring(targetSrc)), 65280)
     refreshAdminForEditors()
 end)
 
@@ -961,7 +913,7 @@ RegisterNetEvent('weazel:server:setGrade', function(data)
     end
 
     refreshAdminForEditors()
-    sendDiscordLog('Grade Changed', ('**%s** changed grade of **%s** to **%s** (%s)'):format(c.name, citizenid, getGradeName(newGrade), newGrade), 16776960)
+    logAction('Grade Changed', ('**%s** changed grade of **%s** to **%s** (%s)'):format(c.name, citizenid, getGradeName(newGrade), newGrade), 16776960)
     notify(src, 'Grade changed successfully', 'success')
 end)
 
@@ -989,6 +941,6 @@ RegisterNetEvent('weazel:server:fire', function(citizenid)
     end
 
     refreshAdminForEditors()
-    sendDiscordLog('Journalist Fired', ('**%s** fired journalist (CitizenID: %s)'):format(c.name, citizenid), 16711680)
+    logAction('Journalist Fired', ('**%s** fired journalist (CitizenID: %s)'):format(c.name, citizenid), 16711680)
     notify(src, 'Player fired successfully', 'success')
 end)

@@ -16,6 +16,9 @@ QBCore = { Functions = { GetPlayer = function(src) return P[src] end } }
 function GetCurrentResourceName() return 'weazel-test' end
 function GetConvar(n, d) return py.convar(n, d) end
 function GetGameTimer() return py.now() end
+function GetConvarInt(n, d) return d end
+function GetPlayers() local t = {} for src in pairs(P) do t[#t+1] = tostring(src) end return t end
+function GetResourceState(n) return py.resource(n) end
 function Wait() end
 function CreateThread(fn) THREADS[#THREADS+1] = fn end   -- not run: the loop is infinite; the work is reachable through the event below
 function RegisterCommand(name, fn) CMD[name] = fn end
@@ -26,10 +29,15 @@ json = { decode = function(s) return py.decode(s) end }
 MySQL = { query = { await = function(sql, params) return py.query(sql, params) end } }
 bridge = {}
 local api = {}
-for _, name in ipairs({ 'issueTicket', 'syncStaff', 'staffIds' }) do
+for _, name in ipairs({ 'issueTicket', 'syncStaff', 'staffIds', 'pollNews' }) do
   api[name] = function(self, cb, ...) py.bridge(name, cb, { ... }) end   -- exports[res]:name(cb, args...) passes self first
 end
 exports = setmetatable({ ['weazel-test'] = api }, { __index = function() return { GetCoreObject = function() return QBCore end } end })
+LBNUM = {}
+exports['lb-phone'] = {
+  GetEquippedPhoneNumber = function(self, src) return LBNUM[src] end,
+  SendNotification = function(self, number, n) py.phone(number, n.title, n.content) end,
+}
 function addPlayer(src, cid, first, last, job, level)
   P[src] = { PlayerData = { source = src, citizenid = cid, charinfo = { firstname = first, lastname = last }, job = { name = job, grade = { level = level } } } }
 end
@@ -45,12 +53,14 @@ class Env:
         self.convars = convars if convars is not None else {"weazel_bridge_secret": "s" * 40, "weazel_api_url": "http://127.0.0.1:8000"}
         self.clock, self.chats, self.bridge_calls, self.queries = 0, [], [], []
         self.bridge_reply = {"issueTicket": (True, 200, {"url": "http://localhost:3000/fivem-login?ticket=T1"}), "syncStaff": (True, 200, {}),
-                             "staffIds": (True, 200, {"citizenids": []})}
+                             "staffIds": (True, 200, {"citizenids": []}), "pollNews": (True, 200, {"now": "T1", "broadcast": [], "personal": []})}
         self.db_rows = {}
+        self.resources = {}
+        self.phones = []
         py = self.lua.table_from({
             "convar": lambda n, d: self.convars.get(n, d), "now": lambda: self.clock,
             "client": lambda ev, tgt, payload: self.chats.append((ev, tgt, self.to_py(payload))),
-            "decode": lambda s: self.to_lua(pyjson.loads(s)), "query": self._query, "bridge": self._bridge,
+            "decode": lambda s: self.to_lua(pyjson.loads(s)), "phone": lambda num, t, c: self.phones.append((num, t, c)), "resource": lambda n: self.resources.get(n, "missing"), "query": self._query, "bridge": self._bridge,
         })
         self.lua.execute(PRELUDE, py)
         with open(BRIDGE_LUA, encoding="utf-8") as f:
@@ -92,6 +102,9 @@ class Env:
 
     def event(self, name, *args):
         self.lua.globals().fire(name, *args)
+
+    def toasts(self, src):
+        return [p for ev, t, p in self.chats if ev == "QBCore:Notify" and t == src]
 
     def says(self, src):
         return [p["args"][1] for ev, t, p in self.chats if ev == "chat:addMessage" and t == src]
@@ -173,6 +186,70 @@ class BridgeLuaTest(unittest.TestCase):
         e.event("weazel:bridge:fullSync")
         p = [c for c in e.bridge_calls if c[0] == "syncStaff"][0][1][0][0]
         self.assertEqual((p["name"], p["grade"]), ("ZZZ999", 2))  # grade given as a bare number is also understood
+
+    # ---- in-game news (pull model) ----
+    def _poll_args(self, e, n=-1):
+        args = [c for c in e.bridge_calls if c[0] == "pollNews"][n][1]
+        if isinstance(args, dict):   # a nil first argument leaves a hole in the Lua argument table
+            return None, args["2"]
+        return args
+
+    def test_poll_sends_only_server_known_online_players_and_keeps_the_cursor(self):
+        e = Env()
+        e.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
+        e.player(9, "CIT9", "Sam", "Citizen", "unemployed", 0)
+        e.event("weazel:bridge:pollNews")
+        since, online = self._poll_args(e)
+        self.assertIsNone(since)
+        self.assertEqual(sorted(online), ["CIT9", "REP1"])
+        e.event("weazel:bridge:pollNews")
+        self.assertEqual(self._poll_args(e)[0], "T1")  # the cursor the API returned is sent back
+
+    def test_broadcast_reaches_every_online_player_and_personal_notices_only_their_owner(self):
+        e = Env()
+        e.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
+        e.player(9, "CIT9", "Sam", "Citizen", "unemployed", 0)
+        e.bridge_reply["pollNews"] = (True, 200, {"now": "T2", "broadcast": [{"article_id": 1, "title": "Port scandal"}],
+                                                  "personal": [{"citizenid": "REP1", "title": "Your article was approved"}]})
+        e.event("weazel:bridge:pollNews")
+        self.assertEqual([t for t in e.toasts(3)], ["Weazel News: Port scandal", "Weazel News: Your article was approved"])
+        self.assertEqual(e.toasts(9), ["Weazel News: Port scandal"])   # the citizen hears the public news only
+        self.assertEqual(e.phones, [])
+
+    def test_lb_phone_is_used_when_the_player_has_a_phone_otherwise_a_screen_notice(self):
+        e = Env()
+        e.resources["lb-phone"] = "started"
+        e.lua.globals().LBNUM[3] = "5550001"
+        e.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
+        e.player(9, "CIT9", "Sam", "Citizen", "unemployed", 0)   # no phone equipped
+        e.bridge_reply["pollNews"] = (True, 200, {"now": "T2", "broadcast": [{"article_id": 1, "title": "Port scandal"}], "personal": []})
+        e.event("weazel:bridge:pollNews")
+        self.assertEqual(e.phones, [("5550001", "Weazel News", "Port scandal")])
+        self.assertEqual(e.toasts(3), [])
+        self.assertEqual(e.toasts(9), ["Weazel News: Port scandal"])
+
+    def test_an_unavailable_api_keeps_the_cursor_and_tells_nobody(self):
+        e = Env()
+        e.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
+        e.event("weazel:bridge:pollNews")
+        e.bridge_reply["pollNews"] = (False, 0, {})
+        e.event("weazel:bridge:pollNews")
+        e.bridge_reply["pollNews"] = (True, 500, {})
+        e.event("weazel:bridge:pollNews")
+        e.bridge_reply["pollNews"] = (True, 200, {"now": "T9", "broadcast": [], "personal": []})
+        e.event("weazel:bridge:pollNews")
+        self.assertEqual(self._poll_args(e)[0], "T1")   # still the last good cursor after two failures
+        self.assertEqual(e.toasts(3), [])
+
+    def test_no_poll_when_unconfigured_or_when_nobody_is_online(self):
+        e = Env(convars={})
+        e.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
+        e.event("weazel:bridge:pollNews")
+        self.assertEqual(e.bridge_calls, [])
+        e = Env()
+        e.event("weazel:bridge:pollNews")   # first call always goes out to obtain a cursor
+        e.event("weazel:bridge:pollNews")
+        self.assertEqual(len([c for c in e.bridge_calls if c[0] == "pollNews"]), 1)   # then an empty server is not polled
 
 
 if __name__ == "__main__":

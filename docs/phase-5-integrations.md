@@ -1,4 +1,6 @@
-# Phase 5 — FiveM bridge, staff sync, Discord outbox
+# Phase 5 — FiveM bridge, staff sync (Discord outbox: REMOVED, see `in-game-news.md`)
+
+> **Superseded:** Discord publishing, the outbox worker and `WEAZEL_DISCORD_*` settings were removed in Phase 6. News is delivered in game by polling. Section 4 and the Discord test rows below describe code that no longer exists.
 
 Status: implemented and tested locally. **Never run inside a real FiveM server or against real Discord.** LB Phone is **not implemented** (see the end). Not pushed.
 

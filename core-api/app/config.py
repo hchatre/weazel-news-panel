@@ -39,9 +39,8 @@ class Settings(BaseSettings):
     BRIDGE_MAX_SKEW_SECONDS: int = 60
     TICKET_TTL_SECONDS: int = 60
     PUBLIC_BASE_URL: str = "http://localhost:3000"
-    # Discord is an outbox with retry, fed only with public facts. The webhook URL lives here (environment), never in code or the database.
-    DISCORD_WEBHOOK_PUBLISH: str = ""
-    DISCORD_MAX_ATTEMPTS: int = 6
+    # News reaches players in game: the game server polls the API (like the DOJ tablet). No Discord webhooks.
+    NEWS_POLL_MAX_ITEMS: int = 20
 
     CORS_ORIGINS: str = "http://localhost:3000"
     PUBLIC_READ_ENABLED: bool = True  # /public/articles (published articles only, no auth)
@@ -60,8 +59,6 @@ class Settings(BaseSettings):
             raise ValueError("WEAZEL_AUTH_MODE=fivem needs WEAZEL_BRIDGE_SECRET (at least 32 random characters)")
         if self.BRIDGE_SECRET and len(self.BRIDGE_SECRET) < 32:
             raise ValueError("WEAZEL_BRIDGE_SECRET must be at least 32 characters")
-        if self.DISCORD_WEBHOOK_PUBLISH and not self.DISCORD_WEBHOOK_PUBLISH.startswith(("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")):
-            raise ValueError("WEAZEL_DISCORD_WEBHOOK_PUBLISH must be a Discord webhook URL (https://discord.com/api/webhooks/...)")
         if self.AUTH_MODE == "local" and self.ENVIRONMENT == "production":
             raise ValueError("WEAZEL_AUTH_MODE=local is not allowed when WEAZEL_ENVIRONMENT=production")
         if self.AUTH_MODE in {"password", "fivem"} and self.ENVIRONMENT != "test":  # fivem signs the same JWTs

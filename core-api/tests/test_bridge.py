@@ -10,7 +10,6 @@ from datetime import datetime, timedelta, timezone
 
 from app import models as m
 from app.config import Settings, get_settings
-from app.services import outbox
 from app.services.bridge import sign
 from tests.conftest import auth, make_user
 
@@ -21,10 +20,10 @@ SECRET = "b" * 40
 @pytest.fixture(autouse=True)
 def bridge_config():
     s = get_settings()
-    old = (s.BRIDGE_SECRET, s.DISCORD_WEBHOOK_PUBLISH, s.TICKET_TTL_SECONDS)
+    old = (s.BRIDGE_SECRET, s.TICKET_TTL_SECONDS)
     s.BRIDGE_SECRET = SECRET
     yield
-    s.BRIDGE_SECRET, s.DISCORD_WEBHOOK_PUBLISH, s.TICKET_TTL_SECONDS = old
+    s.BRIDGE_SECRET, s.TICKET_TTL_SECONDS = old
 
 
 def post(client, path, body, *, secret=SECRET, ts=None, nonce=None, sign_path=None, raw=None, headers=None):
@@ -213,16 +212,13 @@ def test_sync_rejects_malformed_or_oversized_payloads(client, db):
     assert db.scalar(select(func.count()).select_from(m.User)) == 0
 
 
-def test_config_guards_for_bridge_and_discord():
+def test_config_guards_for_bridge():
     base = dict(ENVIRONMENT="test", JWT_SECRET="x" * 40)
     with pytest.raises(ValidationError):
         Settings(**base, AUTH_MODE="fivem")
     with pytest.raises(ValidationError):
         Settings(**base, AUTH_MODE="fivem", BRIDGE_SECRET="short")
     assert Settings(**base, AUTH_MODE="fivem", BRIDGE_SECRET="s" * 40)
-    with pytest.raises(ValidationError):
-        Settings(**base, AUTH_MODE="password", DISCORD_WEBHOOK_PUBLISH="https://evil.example/hook")
-    assert Settings(**base, AUTH_MODE="password", DISCORD_WEBHOOK_PUBLISH="https://discord.com/api/webhooks/1/abc")
 
 
 def test_password_login_still_works_in_fivem_mode(client, db):
@@ -236,9 +232,7 @@ def test_password_login_still_works_in_fivem_mode(client, db):
         s.AUTH_MODE = old
 
 
-# ------------------------------------------------------------------------------------------------ discord outbox
-WEBHOOK = "https://discord.com/api/webhooks/123/SECRETTOKEN"
-
+# ------------------------------------------------------------------------------------------------ in-game news delivery
 
 def publish(client, w, title="Port scandal", summary="Short public summary @everyone"):
     art = client.post(f"{API}/articles", headers=w.h(w.jo), json={"title": title, "summary": summary, "body": "SECRET BODY TEXT", "internal_notes": "INTERNAL"}).json()
@@ -248,87 +242,71 @@ def publish(client, w, title="Port scandal", summary="Short public summary @ever
     return art
 
 
-def test_publication_queues_one_safe_message_and_never_depends_on_discord(client, w, db):
-    get_settings().DISCORD_WEBHOOK_PUBLISH = ""
+def poll(client, since, online, **kw):
+    return post(client, "/bridge/news/poll", {"since": since.isoformat() if since else None, "online": online}, **kw)
+
+
+def test_poll_requires_a_valid_signature(client):
+    assert poll(client, None, [], secret="z" * 40).status_code == 401
+    assert client.post(f"{API}/bridge/news/poll", json={"since": None, "online": []}).status_code == 401
+
+
+def test_first_poll_returns_only_a_cursor_so_a_restart_never_replays_news(client, w):
     publish(client, w)
-    assert db.scalar(select(func.count()).select_from(m.OutboxMessage)) == 0  # not configured: nothing queued, publication unaffected
-    get_settings().DISCORD_WEBHOOK_PUBLISH = WEBHOOK
-    art = publish(client, w, title="Second story")
-    (row,) = db.scalars(select(m.OutboxMessage)).all()
-    blob = json.dumps(row.payload)
-    assert row.channel == "publish" and row.status == "pending" and row.event_key.startswith(f"article:{art['id']}:published")
-    assert "SECRET BODY" not in blob and "INTERNAL" not in blob and "SECRETTOKEN" not in blob  # public facts only
-    assert row.payload["allowed_mentions"] == {"parse": []} and "@everyone" not in blob  # cannot ping anyone
-    assert outbox.enqueue(db, "publish", row.event_key, row.payload) is False  # the same event is never queued twice
+    r = poll(client, None, ["JO12345"]).json()
+    assert r["broadcast"] == [] and r["personal"] == [] and r["now"]
 
 
-def test_delivery_retry_backoff_and_giving_up(db):
-    get_settings().DISCORD_WEBHOOK_PUBLISH = WEBHOOK
-    outbox.enqueue(db, "publish", "evt:1", {"embeds": []})
+def test_published_news_is_broadcast_to_online_players_and_staff_get_personal_notices(client, w, db):
+    from datetime import datetime, timezone
+    w.jo.citizen_id = "JO12345"
     db.commit()
-    now = datetime.now(timezone.utc)
-    calls = []
+    before = datetime.now(timezone.utc)
+    art = publish(client, w, title="Port scandal")
+    r = poll(client, before, ["JO12345", "NOTSTAFF9"])
+    assert r.status_code == 200
+    data = r.json()
+    assert [b["title"] for b in data["broadcast"]] == ["Port scandal"] and data["broadcast"][0]["article_id"] == art["id"]
+    assert any(p["citizenid"] == "JO12345" for p in data["personal"])   # the author hears about the decision, in game
+    assert "SECRET BODY TEXT" not in r.text and "INTERNAL" not in r.text and "Short public summary" not in r.text  # titles only
 
-    def flaky(channel, payload):
-        calls.append(now)
-        return outbox.SendResult(error="HTTP 503")
 
-    assert outbox.process_due(db, flaky, now) == {"sent": 0, "retry": 1, "dead": 0}
-    row = db.scalar(select(m.OutboxMessage))
-    assert row.attempts == 1 and row.status == "pending" and row.next_attempt_at > now
-    assert outbox.process_due(db, flaky, now) == {"sent": 0, "retry": 0, "dead": 0}  # not due yet: nothing is hammered
-    delays = []
-    t = now
-    for _ in range(10):
-        t = row.next_attempt_at + timedelta(seconds=1)
-        outbox.process_due(db, flaky, t)
-        db.refresh(row)
-        if row.status == "dead":
-            break
-        delays.append((row.next_attempt_at - t).total_seconds())
-    assert row.status == "dead" and row.attempts == get_settings().DISCORD_MAX_ATTEMPTS
-    assert delays == sorted(delays) and delays[0] < delays[-1]  # exponential backoff
-    ok = lambda c, p: outbox.SendResult(ok=True)
-    row.status, row.attempts, row.next_attempt_at = "pending", 0, now
+def test_nobody_online_means_nothing_is_delivered(client, w, db):
+    from datetime import datetime, timezone
+    w.jo.citizen_id = "JO12345"
     db.commit()
-    assert outbox.process_due(db, ok, now)["sent"] == 1 and db.scalar(select(m.OutboxMessage)).sent_at is not None
-    assert outbox.process_due(db, ok, now)["sent"] == 0  # a delivered message is never sent again
-
-
-def test_discord_responses_are_classified(db):
-    get_settings().DISCORD_WEBHOOK_PUBLISH = WEBHOOK
-    seen = {}
-
-    def run(status, **kw):
-        t = httpx.MockTransport(lambda r: (seen.setdefault("url", str(r.url)), httpx.Response(status, **kw))[1])
-        return outbox.discord_send("publish", {"x": 1}, transport=t)
-
-    assert run(204).ok
-    r429 = run(429, json={"retry_after": 12.5})
-    assert not r429.ok and r429.retry_after == 12.5 and not r429.permanent  # Discord's own wait is honoured
-    assert run(500).permanent is False and run(404).permanent is True and run(401).permanent is True  # bad webhook: do not hammer
-    get_settings().DISCORD_WEBHOOK_PUBLISH = ""
-    assert outbox.discord_send("publish", {}).permanent  # not configured
-    boom = outbox.discord_send.__wrapped__ if hasattr(outbox.discord_send, "__wrapped__") else None
-    get_settings().DISCORD_WEBHOOK_PUBLISH = WEBHOOK
-
-    def raise_(request):
-        raise httpx.ConnectError("dns failed for https://discord.com/api/webhooks/123/SECRETTOKEN")
-
-    res = outbox.discord_send("publish", {}, transport=httpx.MockTransport(raise_))
-    assert not res.ok and not res.permanent and "SECRETTOKEN" not in res.error  # network errors retry and never echo the URL
-
-
-def test_outbox_admin_view_hides_secrets_and_allows_retry(client, w, db):
-    get_settings().DISCORD_WEBHOOK_PUBLISH = WEBHOOK
+    before = datetime.now(timezone.utc)
     publish(client, w)
-    row = db.scalar(select(m.OutboxMessage))
-    row.status, row.last_error = "dead", "HTTP 404"
+    assert poll(client, before, []).json()["broadcast"] == []
+    assert poll(client, before, ["bad id!", "x"]).json()["broadcast"] == []   # malformed ids are ignored, not trusted
+
+
+def test_personal_notices_only_go_to_the_player_they_belong_to(client, w, db):
+    from datetime import datetime, timezone
+    w.jo.citizen_id = "JO12345"
     db.commit()
-    assert client.get(f"{API}/admin/integrations/status", headers=w.h(w.jo)).status_code == 403
-    r = client.get(f"{API}/admin/integrations/status", headers=w.h(w.admin))
-    assert r.status_code == 200 and r.json()["outbox"]["dead"] == 1 and r.json()["bridge_configured"] is True
-    assert "SECRETTOKEN" not in r.text and SECRET not in r.text and "embeds" not in r.text
-    assert client.post(f"{API}/admin/integrations/outbox/{row.id}/retry", headers=w.h(w.admin)).json()["status"] == "pending"
-    db.expire_all()
-    assert db.get(m.OutboxMessage, row.id).attempts == 0
+    before = datetime.now(timezone.utc)
+    publish(client, w)
+    other = poll(client, before, ["SOMEONE99"]).json()
+    assert other["personal"] == [] and len(other["broadcast"]) == 1   # news is public, the notice is not
+
+
+def test_unpublished_work_is_never_broadcast_and_old_news_is_not_replayed(client, w, db):
+    from datetime import datetime, timezone
+    client.post(f"{API}/articles", headers=w.h(w.jo), json={"title": "Secret draft", "body": "x"})
+    before = datetime.now(timezone.utc)
+    assert poll(client, before, ["ANYONE1"]).json()["broadcast"] == []
+    publish(client, w, title="Real news")
+    after = datetime.now(timezone.utc)
+    assert poll(client, after, ["ANYONE1"]).json()["broadcast"] == []   # the cursor moved past it
+    titles = [b["title"] for b in poll(client, before, ["ANYONE1"]).json()["broadcast"]]
+    assert titles == ["Real news"]
+
+
+def test_an_article_that_is_no_longer_public_is_not_broadcast(client, w, db):
+    from datetime import datetime, timezone
+    before = datetime.now(timezone.utc)
+    art = publish(client, w, title="Pulled story")
+    db.get(m.Article, art["id"]).status = "archived"   # published_at stays set, but the story is no longer public
+    db.commit()
+    assert poll(client, before, ["ANYONE1"]).json()["broadcast"] == []

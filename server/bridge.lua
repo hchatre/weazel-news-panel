@@ -85,3 +85,59 @@ CreateThread(function()
         Wait(SYNC_INTERVAL_MS)
     end
 end)
+
+-- ==============================
+-- IN-GAME NEWS (pull model, same idea as the DOJ tablet; no Discord)
+-- ==============================
+-- The game server asks the API what is new for the players who are online. Only short titles come back.
+-- Delivery: LB Phone notification if the player has a phone, otherwise an on-screen notification.
+local newsCursor = nil
+local NEWS_POLL_MS = math.max(5, GetConvarInt('weazel_news_poll_seconds', 20)) * 1000
+
+local function newsNotice(src, title)
+    if GetResourceState('lb-phone') == 'started' then
+        local ok, sent = pcall(function()
+            local number = exports['lb-phone']:GetEquippedPhoneNumber(src)
+            if not number then return false end
+            exports['lb-phone']:SendNotification(number, { app = 'weazel-news', title = 'Weazel News', content = title })
+            return true
+        end)
+        if ok and sent then return end
+    end
+    TriggerClientEvent('QBCore:Notify', src, 'Weazel News: ' .. title, 'primary', 8000)
+end
+
+local function pollNews()
+    if not configured() then return end
+    local online, byCid = {}, {}
+    for _, id in ipairs(GetPlayers()) do
+        local src = tonumber(id)
+        local p = src and QBCore.Functions.GetPlayer(src)
+        local cid = p and p.PlayerData and p.PlayerData.citizenid
+        if cid then byCid[cid] = src; online[#online + 1] = cid end
+    end
+    if #online == 0 and newsCursor ~= nil then return end   -- nobody to tell; the cursor stays so nothing is lost
+    exports[GetCurrentResourceName()]:pollNews(function(ok, status, body)
+        if not (ok and status == 200 and body) then return end   -- the API is down: keep the cursor, try again next round
+        newsCursor = body.now
+        for _, item in ipairs(body.broadcast or {}) do
+            for _, src in pairs(byCid) do
+                if QBCore.Functions.GetPlayer(src) then newsNotice(src, tostring(item.title or '')) end
+            end
+        end
+        for _, item in ipairs(body.personal or {}) do
+            local src = byCid[item.citizenid]
+            if src and QBCore.Functions.GetPlayer(src) then newsNotice(src, tostring(item.title or '')) end
+        end
+    end, newsCursor, online)
+end
+
+AddEventHandler('weazel:bridge:pollNews', pollNews)   -- server-side only
+
+CreateThread(function()
+    Wait(12000)
+    while true do
+        TriggerEvent('weazel:bridge:pollNews')
+        Wait(NEWS_POLL_MS)
+    end
+end)

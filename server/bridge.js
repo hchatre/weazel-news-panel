@@ -61,6 +61,8 @@ function client(cfg) {
     },
     syncStaff: (players) => request({ ...cfg, path: '/api/v1/bridge/sync-staff', body: { players } }),
     staffIds: () => request({ ...cfg, method: 'GET', path: '/api/v1/bridge/staff-ids' }),
+    /** What is new for the players who are online. `since` is the cursor the API gave last time (null on the first call). */
+    pollNews: (since, online) => request({ ...cfg, path: '/api/v1/bridge/news/poll', body: { since: since || null, online } }),
   };
 }
 
@@ -76,4 +78,5 @@ if (typeof GetCurrentResourceName === 'function') {
   exports('issueTicket', wrap((api, cid) => api.issueTicket(cid)));
   exports('syncStaff', wrap((api, players) => api.syncStaff(players)));
   exports('staffIds', wrap((api) => api.staffIds()));
+  exports('pollNews', wrap((api, since, online) => api.pollNews(since, online)));
 }

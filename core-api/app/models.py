@@ -446,7 +446,7 @@ class BridgeTicket(Base):
 
 
 class OutboxMessage(Base):
-    """Outgoing integration message (Discord). `event_key` is unique so the same event is never queued twice."""
+    """UNUSED since Discord publishing was removed (news is delivered in game by polling). Kept so that no table is dropped; safe to drop later."""
     __tablename__ = "outbox_messages"
     id: Mapped[int] = mapped_column(primary_key=True)
     channel: Mapped[str] = mapped_column(String(30))

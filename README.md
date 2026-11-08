@@ -17,7 +17,7 @@ dossiers with a rumour / confirmed / denied timeline, published-article notifica
 
 1. Put the folder in `resources/` and import `install.sql` (tables are `CREATE TABLE IF NOT EXISTS`, safe on an existing database).
 2. **Existing servers:** back up, then run `sql/001_author_citizenid.sql` once. Without it everything works, but draft ownership is checked by character name (old behaviour).
-3. Copy the convars from `server.cfg.example` into your `server.cfg` with **new** Discord webhooks, then `ensure` the resource.
+3. Copy the convars from `server.cfg.example` into your `server.cfg` (no Discord webhooks are used any more), then `ensure` the resource.
 
 ## Use
 
@@ -30,7 +30,7 @@ dossiers with a rumour / confirmed / denied timeline, published-article notifica
 
 ```
 pip install lupa playwright
-python3 -m unittest discover -s tests/lua        # server logic with stubbed QBCore/oxmysql/Discord
+python3 -m unittest discover -s tests/lua        # server logic with stubbed QBCore/oxmysql/LB Phone
 CHROME_PATH=/path/to/chrome python3 -m unittest discover -s tests/nui   # NUI in headless Chrome
 ```
 These do not replace testing in a real FiveM server. See `docs/security-checklist.md`.
