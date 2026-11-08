@@ -4,6 +4,14 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 export type Lang = "en" | "fr";
 const dict: Record<Lang, Record<string, string>> = {
   en: {
+    newsroom: "Newsroom", latest: "Latest", breaking: "Breaking", administration: "Administration", loginTagline: "Stories from the first idea to the front page, and the investigations behind them.",
+    staff: "Staff", roles: "Roles", jobMappings: "Job grades", audit: "Audit log", recruit: "Add a staff member", displayName: "Display name", role: "Role", citizenId: "Citizen ID", jobName: "Job",
+    grade: "Grade", source: "Source", lastLogin: "Last sign-in", openArticles: "Open articles", active: "Active", inactive: "Inactive", deactivate: "Deactivate", confirmDeactivate: "Deactivate this person? They are signed out at once.",
+    changeRole: "Change role", permissionOverrides: "Permission overrides", grant: "Grant", deny: "Deny", permission: "Permission", apply: "Apply", create: "Create", rank: "Rank", key: "Key", description: "Description",
+    staffAdded: "Staff member added.", roleChanged: "Role changed.", overrideSaved: "Override saved.", deactivated: "Deactivated.", roleSaved: "Role saved.", mappingSaved: "Job grade saved.", transitionSaved: "Step saved.",
+    newRole: "New role", rolePermissions: "Permissions of this role", independentReview: "Independent reviewer", requiresNote: "Note required", enabled: "Enabled", step: "Step", from: "From", to: "To",
+    actionCol: "Action", entity: "Entity", actor: "Who", when: "When", exportCsv: "Export CSV", filterAction: "Action starts with", filterEntity: "Entity type", noResults: "No results.", higherRank: "Equal or higher rank than yours: you cannot edit it.",
+    rolesUnavailable: "Roles could not be loaded.", syncedNote: "Synced from the game. A role you set by hand stays until you change it.", saveStep: "Save step", mapJobHint: "Maps a job and grade from the game to a role.",
     appName: "Weazel Newsroom", dashboard: "Dashboard", articles: "Articles", investigations: "Investigations", search: "Search",
     signIn: "Sign in", signOut: "Sign out", email: "Email", password: "Password", loginFailed: "Sign-in failed. Check your details.",
     newArticle: "New article", title: "Title", subtitle: "Subtitle", summary: "Summary", body: "Body", category: "Category", status: "Status", author: "Author",
@@ -27,6 +35,14 @@ const dict: Record<Lang, Record<string, string>> = {
     skip: "Skip to content", all: "All", reason: "Reason",
   },
   fr: {
+    newsroom: "Rédaction", latest: "À la une", breaking: "Flash", administration: "Administration", loginTagline: "Des articles, de l'idée à la une, et les enquêtes qui les nourrissent.",
+    staff: "Équipe", roles: "Rôles", jobMappings: "Grades", audit: "Journal d'audit", recruit: "Ajouter un membre", displayName: "Nom affiché", role: "Rôle", citizenId: "ID citoyen", jobName: "Métier",
+    grade: "Grade", source: "Source", lastLogin: "Dernière connexion", openArticles: "Articles en cours", active: "Actif", inactive: "Inactif", deactivate: "Désactiver", confirmDeactivate: "Désactiver cette personne ? Elle est déconnectée immédiatement.",
+    changeRole: "Changer le rôle", permissionOverrides: "Droits individuels", grant: "Accorder", deny: "Refuser", permission: "Droit", apply: "Appliquer", create: "Créer", rank: "Rang", key: "Clé", description: "Description",
+    staffAdded: "Membre ajouté.", roleChanged: "Rôle modifié.", overrideSaved: "Droit enregistré.", deactivated: "Désactivé.", roleSaved: "Rôle enregistré.", mappingSaved: "Grade enregistré.", transitionSaved: "Étape enregistrée.",
+    newRole: "Nouveau rôle", rolePermissions: "Droits de ce rôle", independentReview: "Relecteur indépendant", requiresNote: "Note obligatoire", enabled: "Activé", step: "Étape", from: "De", to: "Vers",
+    actionCol: "Action", entity: "Objet", actor: "Qui", when: "Quand", exportCsv: "Exporter en CSV", filterAction: "Action commençant par", filterEntity: "Type d'objet", noResults: "Aucun résultat.", higherRank: "Rang égal ou supérieur au vôtre : modification impossible.",
+    rolesUnavailable: "Impossible de charger les rôles.", syncedNote: "Synchronisé depuis le jeu. Un rôle défini à la main reste jusqu'à ce que vous le changiez.", saveStep: "Enregistrer l'étape", mapJobHint: "Associe un métier et un grade du jeu à un rôle.",
     appName: "Rédaction Weazel", dashboard: "Tableau de bord", articles: "Articles", investigations: "Enquêtes", search: "Recherche",
     signIn: "Connexion", signOut: "Déconnexion", email: "E-mail", password: "Mot de passe", loginFailed: "Échec de la connexion. Vérifiez vos informations.",
     newArticle: "Nouvel article", title: "Titre", subtitle: "Sous-titre", summary: "Résumé", body: "Corps", category: "Catégorie", status: "Statut", author: "Auteur",

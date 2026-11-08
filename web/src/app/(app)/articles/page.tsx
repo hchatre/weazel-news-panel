@@ -25,14 +25,23 @@ export default function Articles() {
       </div>
       <State loading={loading} error={error}>
         {data && (data.items.length === 0 ? <p className="text-muted">{t("empty")}</p> : (
-          <div className="card divide-y divide-line">
-            {data.items.map((a: any) => (
-              <Link key={a.id} href={`/articles/${a.id}`} className="flex flex-wrap items-center justify-between gap-2 p-3 hover:bg-raised">
-                <div><div className="font-medium">{a.is_breaking && <span className="mr-2 text-brand">BREAKING</span>}{a.title}</div>
-                  <div className="text-xs text-muted">{a.author ?? "—"} · {fmt(a.updated_at)}</div></div>
-                <Badge value={a.status} />
+          <div className="space-y-4">
+            {page === 1 && (
+              <Link href={`/articles/${data.items[0].id}`} className="panel block bg-set p-6 text-white transition-colors hover:bg-set/90 [&_*]:text-inherit">
+                <div className="mb-3 flex flex-wrap items-center gap-2">{data.items[0].is_breaking && <span className="chyron chyron-brand">{t("breaking")}</span>}<Badge value={data.items[0].status} /></div>
+                <h2 className="max-w-3xl text-4xl font-bold leading-[1.05] sm:text-6xl">{data.items[0].title}</h2>
+                <p className="mt-3 text-sm text-white/70">{data.items[0].author ?? "—"} · {fmt(data.items[0].updated_at)}</p>
               </Link>
-            ))}
+            )}
+            <div className="panel divide-y divide-line">
+              {data.items.slice(page === 1 ? 1 : 0).map((a: any) => (
+                <Link key={a.id} href={`/articles/${a.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-raised">
+                  <div className="min-w-0"><div className="font-display text-2xl font-semibold leading-tight">{a.is_breaking && <span className="chyron chyron-brand mr-2 align-middle">{t("breaking")}</span>}{a.title}</div>
+                    <div className="text-sm text-muted">{a.author ?? "—"} · {fmt(a.updated_at)}</div></div>
+                  <Badge value={a.status} />
+                </Link>
+              ))}
+            </div>
           </div>
         ))}
         {data && <Pager page={page} total={data.total} size={data.page_size} onPage={setPage} />}

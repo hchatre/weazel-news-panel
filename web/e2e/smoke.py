@@ -31,7 +31,7 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/articles/new"); page.fill("#title", "E2E story"); page.fill("#body", "Body text"); page.click("button:has-text('Save')")
     expect(page.get_by_role("heading", name="E2E story")).to_be_visible()
     page.fill("#b", "Edited body"); page.click("button:has-text('Save')"); expect(page.get_by_role("status").filter(has_text="Saved")).to_be_visible()
-    page.click("button:has-text('submitted')"); expect(page.locator("h1 ~ div .badge")).to_have_text("submitted")
+    page.click("button:has-text('submitted')"); expect(page.locator("h1 ~ div .chyron")).to_have_text("submitted")
     art_url = page.url
 
     # the author must not be able to review their own article
@@ -56,7 +56,7 @@ with sync_playwright() as p:
     page.click("button:has-text('Summarise timeline')")
     expect(page.get_by_text("AI-generated suggestion. Not verified").nth(1)).to_be_visible()
     expect(page.get_by_text("MOCK OUTPUT")).to_be_visible()
-    page.click("button:has-text('Mark as accepted')"); expect(page.locator("span.badge", has_text="accepted")).to_be_visible()
+    page.click("button:has-text('Mark as accepted')"); expect(page.locator("span.chyron", has_text="accepted")).to_be_visible()
     expect(page.locator("ol li").first).to_contain_text("<img src=x")  # the timeline itself is untouched
 
     # French + theme switch
@@ -70,7 +70,7 @@ with sync_playwright() as p:
     bell.click(); expect(page.get_by_text("En attente de relecture").first).to_be_visible()  # kind text follows the UI language
     page.keyboard.press("Escape"); expect(page.locator("[role=dialog]")).to_have_count(0)
     page.goto(art_url); expect(page.locator("button:has-text('in review')")).to_be_visible()
-    page.click("button:has-text('in review')"); expect(page.locator("h1 ~ div .badge")).to_have_text("in review")
+    page.click("button:has-text('in review')"); expect(page.locator("h1 ~ div .chyron")).to_have_text("in review")
 
     # in-game sign-in: a signed ticket opens the app with no password, is stripped from the URL, and works only once
     cid = "E2E" + uuid.uuid4().hex[:8]
@@ -92,6 +92,28 @@ with sync_playwright() as p:
     page.get_by_role("link", name="Integrations").click(); expect(page.get_by_text("FiveM bridge")).to_be_visible()
     expect(page.get_by_text("Configured").first).to_be_visible()
     assert BRIDGE_SECRET not in page.content()
+
+    # ---- admin screens: every visible action does something real ----
+    page.on("dialog", lambda d: d.accept())
+    tag = uuid.uuid4().hex[:6]; hire = f"hire{tag}@weazel.test"; who = f"Test Hire {tag}"
+    page.get_by_role("link", name="Staff").click(); expect(page.get_by_role("heading", name="Staff")).to_be_visible()
+    page.get_by_role("button", name="Add a staff member").click()
+    page.fill("#n", who); page.fill("#e", hire); page.fill("#pw", "a long enough password"); page.select_option("#ro", "intern")
+    page.locator("form button", has_text="Add a staff member").click(); expect(page.get_by_text("Staff member added.")).to_be_visible()
+    row = page.locator("tbody tr", has_text=who).first
+    row.locator("button[aria-expanded]").first.click()
+    page.locator("select[id^=r]").first.select_option("journalist"); page.get_by_role("button", name="Apply").first.click(); expect(page.get_by_text("Role changed.")).to_be_visible()
+    page.get_by_role("button", name="Deactivate").click(); expect(page.get_by_text("Deactivated.")).to_be_visible()
+    expect(page.locator("tbody tr", has_text=who).first.get_by_text("Inactive")).to_be_visible()
+    page.get_by_role("link", name="Roles").click(); page.get_by_role("button", name="Journalist 20").click()
+    expect(page.get_by_text("Permissions of this role")).to_be_visible(); page.get_by_role("button", name="Save", exact=True).click(); expect(page.get_by_text("Role saved.")).to_be_visible()
+    page.get_by_role("link", name="Job grades").click(); expect(page.get_by_role("cell", name="reporter").first).to_be_visible()
+    page.get_by_role("button", name="Save", exact=True).click(); expect(page.get_by_text("Job grade saved.")).to_be_visible()
+    page.get_by_role("link", name="Workflow").click(); page.get_by_role("button", name="Save step").first.click(); expect(page.get_by_text("Step saved.")).to_be_visible()
+    page.get_by_role("link", name="Audit log").click(); expect(page.get_by_role("cell", name="staff.recruit").first).to_be_visible()
+    with page.expect_download() as dl: page.get_by_role("button", name="Export CSV").click()
+    assert dl.value.suggested_filename == "audit.csv"
+    page.fill("#fa", "staff.dismiss"); expect(page.get_by_role("cell", name="staff.dismiss").first).to_be_visible()
 
     # unauthenticated access redirects to login
     page.context.clear_cookies(); page.evaluate("sessionStorage.clear()"); page.goto(f"{BASE}/articles"); expect(page).to_have_url(f"{BASE}/login")

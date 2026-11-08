@@ -150,6 +150,15 @@ def staff(ctx: Ctx = Depends(require("staff.view"))):
     return out
 
 
+@router.get("/staff/assignable-roles")
+def assignable_roles(ctx: Ctx = Depends(get_ctx)):
+    """Roles the caller may hand out (strictly below their own rank). Needs recruit or promote, so a chief can fill the
+    role pickers without being able to read the whole role configuration."""
+    if not (ctx.can("staff.recruit") or ctx.can("staff.promote")):
+        raise HTTPException(403, "Permission denied")
+    return [{"key": r.key, "name": r.name, "rank": r.rank} for r in ctx.db.scalars(select(m.Role).where(m.Role.rank < ctx.rank).order_by(m.Role.rank))]
+
+
 class UserIn(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
     email: str = Field(min_length=3, max_length=200, pattern=r"^[^@\s]+@[^@\s]+$")

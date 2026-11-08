@@ -12,7 +12,7 @@ Backend 134 passed (real Postgres, real migrations, MariaDB for importer), Lua 5
 Real FiveM server, real LB Phone 2.8.1 (AddCustomApp signature, fetchNui, ui path unverified), real AI model, real MySQL 8, Windows.
 
 ## Known gaps
-No staff/role admin UI, corrections UI, participants UI or evidence preview. No antivirus/EXIF handling. In-memory rate limiters (one process). No refresh tokens (30 min). Password change disabled in fivem mode. The old NUI still writes to MySQL (re-run the importer); running both webhook systems double-posts. Independent security review not done (self-review only).
+No corrections UI, investigation participants UI or evidence preview (their API routes exist). Admin screens for staff, roles, job grades, workflow and the audit log were added in Phase 7. No antivirus/EXIF handling. In-memory rate limiters (one process). No refresh tokens (30 min). Password change disabled in fivem mode. The old NUI still writes to MySQL (re-run the importer); running both webhook systems double-posts. Independent security review not done (self-review only).
 
 ## Do next
 Install the GitHub App or push the bundle. Delete the 3 old Discord webhooks (still public in old history). Run the in-game checklist. Provide a real MySQL export for the importer.

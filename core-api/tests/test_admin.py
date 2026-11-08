@@ -153,3 +153,11 @@ def test_security_headers_and_health(client):
     r = client.get("/health")
     assert r.json() == {"status": "ok", "database": "ok"}
     assert r.headers["x-content-type-options"] == "nosniff" and r.headers["cache-control"] == "no-store"
+
+
+def test_assignable_roles_lists_only_roles_below_the_caller_and_needs_a_staff_permission(client, w):
+    eic = client.get(f"{API}/staff/assignable-roles", headers=w.h(w.eic))   # a chief can fill role pickers without settings.manage
+    assert eic.status_code == 200
+    keys = {r["key"] for r in eic.json()}
+    assert "editor" in keys and "intern" in keys and "editor_in_chief" not in keys and "system_admin" not in keys
+    assert client.get(f"{API}/staff/assignable-roles", headers=w.h(w.jo)).status_code == 403   # a journalist has no staff permission

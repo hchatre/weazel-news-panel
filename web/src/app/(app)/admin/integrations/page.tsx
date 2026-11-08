@@ -6,7 +6,7 @@ import { PageTitle, State } from "@/components/ui";
 export default function Integrations() {
   const { t } = useI18n();
   const { data, error, loading } = useApi<any>("/admin/integrations/status");
-  const Flag = ({ on }: { on: boolean }) => <span className={`badge ${on ? "text-ok border-ok" : "text-warn border-warn"}`}>{on ? t("configured") : t("notConfigured")}</span>;
+  const Flag = ({ on }: { on: boolean }) => <span className={`chyron ${on ? "chyron-ok" : "chyron-warn"}`}>{on ? t("configured") : t("notConfigured")}</span>;
   return (
     <>
       <PageTitle>{t("integrations")}</PageTitle>

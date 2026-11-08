@@ -54,7 +54,7 @@ export default function AiPanel({ subjectType, subjectId }: Props) {
             <button className="btn" onClick={() => navigator.clipboard?.writeText(result.output)}>{t("aiCopy")}</button>
             <button className="btn" disabled={result.disposition !== "pending"} onClick={() => decide("accepted")}>{t("aiAccept")}</button>
             <button className="btn" disabled={result.disposition !== "pending"} onClick={() => decide("rejected")}>{t("aiReject")}</button>
-            {result.disposition !== "pending" && <span className="badge">{result.disposition}</span>}
+            {result.disposition !== "pending" && <span className="chyron">{result.disposition}</span>}
           </div>
           <p className="mt-2 text-xs text-muted">{t("aiNote")}</p>
         </div>
