@@ -9,6 +9,18 @@
 </head>
 <body>
 
+<div id="tablet" class="tablet" hidden>
+  <div class="tablet-bezel">
+    <span class="tablet-camera" aria-hidden="true"></span>
+    <div class="tablet-screen">
+      <div id="lock" class="lock" role="button" tabindex="0" aria-label="Unlock and open Weazel News">
+        <div class="lock-band" aria-hidden="true"></div>
+        <div class="lock-brand"><img src="logo.png?v=2" alt=""><span>Weazel News</span></div>
+        <div class="lock-clock"><div id="lockDay" class="lock-day"></div><div id="lockTime" class="lock-time">--:--</div></div>
+        <div id="lockNews" class="lock-news" aria-live="polite"></div>
+        <div class="lock-hint"><span class="lock-chevron" aria-hidden="true"></span><span>Click to open</span></div>
+      </div>
+      <button id="homeBar" class="home-bar" aria-label="Lock the tablet"></button>
 <div id="app" style="display:none">
     <!-- HEADER -->
     <header class="header">
@@ -217,6 +229,9 @@
             <button id="deleteEntryCancel" class="btn btn-deny">No</button>
         </div>
     </div>
+</div>
+    </div>
+  </div>
 </div>
 
 <!-- NOTIFICATION CONTAINER -->

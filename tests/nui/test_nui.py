@@ -72,6 +72,8 @@ class NuiTest(unittest.TestCase):
 
     def ceo(self):
         self.post(action="open")
+        self.page.click("#lock")   # the tablet always opens on the lock screen
+        self.page.wait_for_selector("#tablet:not(.locked)")
         self.post(action="setRole", role="reporter", grade=3, name="Chief One")
 
     def calls(self):
@@ -153,6 +155,56 @@ class NuiTest(unittest.TestCase):
         publish = [c for c in self.calls() if c["event"] == "publishDraft"]
         self.assertEqual(len(publish), 1)
         self.assertEqual((publish[0]["body"]["id"], publish[0]["body"]["content"]), (7, "New body"))
+
+    # ---- tablet and lock screen ----
+    def test_panel_opens_on_a_lock_screen_and_the_app_is_not_reachable_until_unlocked(self):
+        self.post(action="open", clock={"h": 7, "m": 5, "dow": 1, "d": 3, "mo": 10})
+        self.assertTrue(self.page.is_visible("#lock"))
+        self.assertFalse(self.page.is_visible("#app"))   # hidden from sight, clicks and keyboard
+        self.assertEqual(self.page.inner_text("#lockTime"), "07:05")
+        self.assertEqual(self.page.inner_text("#lockDay"), "Monday, 3 November")
+        self.page.click("#lock")
+        self.page.wait_for_selector("#tablet:not(.locked)")
+        self.assertTrue(self.page.is_visible("#app"))
+        self.page.wait_for_selector("#lock", state="hidden")
+
+    def test_lock_screen_can_be_opened_with_the_keyboard_and_relocked_with_the_home_bar(self):
+        self.post(action="open")
+        self.page.focus("#lock")
+        self.page.keyboard.press("Enter")
+        self.page.wait_for_selector("#tablet:not(.locked)")
+        self.page.click("#homeBar")
+        self.page.wait_for_selector("#tablet.locked")
+        self.assertFalse(self.page.is_visible("#app"))
+
+    def test_lock_screen_shows_the_latest_headlines_as_text_only(self):
+        self.post(action="open")
+        self.post(action="setLatestNews", entries=[
+            {"id": 1, "title": 'Pier 4 blaze <img src=x onerror="window.__pwned=1">', "category": "Breaking", "likes": 0, "comments": 0},
+            {"id": 2, "title": "Council approves curfew", "category": "Politics", "likes": 0, "comments": 0},
+            {"id": 3, "title": "Third", "likes": 0, "comments": 0}, {"id": 4, "title": "Fourth is not shown", "likes": 0, "comments": 0}])
+        cards = self.page.locator("#lockNews .lock-card")
+        self.assertEqual(cards.count(), 3)
+        self.assertIn("Pier 4 blaze", cards.first.inner_text())
+        self.assertEqual(self.page.locator("#lockNews img").count(), 0)
+        self.assertFalse(self.pwned())
+
+    def test_clock_updates_while_open_and_close_hides_the_tablet_and_reopens_locked(self):
+        self.post(action="open", clock={"h": 23, "m": 59, "dow": 6, "d": 31, "mo": 11})
+        self.post(action="clock", clock={"h": 0, "m": 0, "dow": 0, "d": 1, "mo": 0})
+        self.assertEqual(self.page.inner_text("#lockTime"), "00:00")
+        self.assertEqual(self.page.inner_text("#lockDay"), "Sunday, 1 January")
+        self.page.click("#lock")
+        self.page.wait_for_selector("#tablet:not(.locked)")
+        self.post(action="close")
+        self.assertFalse(self.page.is_visible("#tablet"))
+        self.post(action="open")
+        self.assertTrue(self.page.is_visible("#lock"))   # it never reopens already unlocked
+
+    def test_escape_closes_from_the_lock_screen_too(self):
+        self.post(action="open")
+        self.page.keyboard.press("Escape")
+        self.assertTrue(any(c["event"] == "close" for c in self.calls()))
 
     def test_timeline_buttons_without_inline_handlers(self):
         self.ceo()

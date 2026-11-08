@@ -1,6 +1,11 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local panelOpen = false
 
+-- In-game time for the lock screen (month is 0-based in the game, like in JS).
+local function gameClock()
+    return { h = GetClockHours(), m = GetClockMinutes(), dow = GetClockDayOfWeek(), d = GetClockDayOfMonth(), mo = GetClockMonth() }
+end
+
 -- The server decides whether this player may open the panel (job / public access); the client only reacts.
 RegisterCommand('weazel', function()
     if panelOpen then return end
@@ -20,7 +25,14 @@ RegisterNetEvent("weazel:client:open", function()
     panelOpen = true
     SetNuiFocus(true, true)
     SetPlayerControl(PlayerId(), false, 0)
-    SendNUIMessage({ action = "open" })
+    SendNUIMessage({ action = "open", clock = gameClock() })
+    -- Keeps the lock-screen clock moving while the tablet is open.
+    CreateThread(function()
+        while panelOpen do
+            Wait(2000)
+            if panelOpen then SendNUIMessage({ action = "clock", clock = gameClock() }) end
+        end
+    end)
     -- Escape handling only runs while the panel is open.
     CreateThread(function()
         while panelOpen do
