@@ -5,6 +5,7 @@ import { useEffect } from "react";
 export default function FrameEscape() {
   useEffect(() => {
     if (typeof window === "undefined" || window.parent === window) return;
+    window.parent.postMessage({ type: "weazel-ready" }, "*");   // tells the tablet the page started
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") window.parent.postMessage({ type: "weazel-tablet-close" }, "*"); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

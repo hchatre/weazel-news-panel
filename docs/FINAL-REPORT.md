@@ -16,3 +16,13 @@ No corrections UI, investigation participants UI or evidence preview (their API 
 
 ## Do next
 Install the GitHub App or push the bundle. Delete the 3 old Discord webhooks (still public in old history). Run the in-game checklist. Provide a real MySQL export for the importer.
+
+## Update: the old panel is gone, every character gets an account
+
+- The old in-game panel and everything that only served it were deleted (NUI pages, `server/main.lua`, the phone news reader, the MySQL schema files). The FiveM resource is a tablet around the web app. Old MySQL data is untouched and still importable.
+- Any character can open the newsroom. Reporter grades 0-4 map to journalist, senior journalist, editor, editor-in-chief, system administrator (defaults, editable under Admin, Job mapping; edited rows are never overwritten). Everyone else is a **Freelancer** (write and submit only). `WEAZEL_FIVEM_DEFAULT_ROLE` changes or disables that.
+- The API applies its defaults at every start, so the new role and job table appear on upgrade without a manual step.
+- Tested: 142 API tests, 25 Lua, 11 tablet-page tests, browser run as seven different characters (unemployed, taxi driver, reporter grades 0-4).
+- Not tested: a real FiveM client, real LB Phone 2.8.1.
+
+Repository layout: `core-api/`, `web/`, `fivem/` (the in-game resource and its tests), `docs/`. Older phase notes keep the paths they had when written.

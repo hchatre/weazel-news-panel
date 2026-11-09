@@ -30,22 +30,106 @@ def _parse(model, body: bytes):
         raise HTTPException(422, "Invalid request body")
 
 
+class Player(BaseModel):
+    citizenid: str = Field(pattern=r"^[A-Za-z0-9]{3,50}$")
+    name: str = Field(min_length=1, max_length=120)
+    job: str = Field(min_length=1, max_length=50)
+    grade: int = Field(ge=0, le=100)
+
+
+def _mapping(db: Session):
+    return {(j.job_name, j.grade_level): j.role_id for j in db.scalars(select(m.JobGradeMapping))}
+
+
+def _default_role_id(db: Session):
+    key = get_settings().FIVEM_DEFAULT_ROLE.strip()
+    return db.scalar(select(m.Role.id).where(m.Role.key == key)) if key else None
+
+
+def _apply_player(db: Session, p: Player, mapping: dict, roles: dict, default_role_id, out: dict):
+    """Make the account of one character match what the game says. Employment maps to a role through the job table; a character whose
+    job is not mapped (unemployed, any other job, former staff) gets the default role, so every character can open the newsroom.
+    Never touched: accounts created locally and roles set by hand (`role_locked`)."""
+    user = db.scalar(select(m.User).where(m.User.citizen_id == p.citizenid))
+    if user is not None and user.source == "local":
+        out["skipped_local"] += 1
+        return user
+    staff_role = mapping.get((p.job, p.grade))
+    role_id = staff_role if staff_role is not None else default_role_id
+    if role_id is None:  # unmapped and no default role configured: no newsroom access
+        if user is not None and user.is_active:
+            user.is_active, user.employment_status, user.employment_job, user.employment_grade = False, "former", p.job, p.grade
+            user.token_version += 1  # sessions end immediately
+            audit.record(db, None, "bridge.deactivated", "user", user.id, detail={"job": p.job, "grade": p.grade})
+            out["deactivated"] += 1
+        else:
+            out["skipped_unmapped"] += 1
+        return user
+    if user is None:
+        user = m.User(citizen_id=p.citizenid, display_name=clean_text(p.name, 120), role_id=role_id, source="fivem",
+                      employment_job=p.job, employment_grade=p.grade, employment_status="active")
+        db.add(user)
+        db.flush()
+        audit.record(db, None, "bridge.user_created", "user", user.id, detail={"role": roles[role_id]})
+        out["created"] += 1
+        return user
+    changed = False
+    if not user.is_active and user.employment_status == "former":  # deactivated by an earlier sync, not by a person
+        user.is_active, user.employment_status, changed = True, "active", True
+        audit.record(db, None, "bridge.reactivated", "user", user.id)
+        out["reactivated"] += 1
+    user.source = "fivem"
+    user.display_name = clean_text(p.name, 120) or user.display_name
+    user.employment_job, user.employment_grade = p.job, p.grade
+    if user.role_id != role_id and not user.role_locked and user.is_active:
+        audit.record(db, None, "bridge.role_changed", "user", user.id, detail={"from": roles.get(user.role_id), "to": roles[role_id]})
+        if staff_role is None and user.role_id is not None and user.role_id != default_role_id:
+            user.employment_status = "former"   # had a newsroom job, no longer does
+        elif staff_role is not None and user.employment_status == "former":
+            user.employment_status = "active"
+        user.role_id = role_id
+        user.token_version += 1
+        out["role_changed"] += 1
+        changed = True
+    elif user.role_id is None and user.is_active:
+        user.role_id = role_id
+    out["updated"] += int(changed)
+    return user
+
+
+def _counters():
+    return dict(created=0, updated=0, role_changed=0, deactivated=0, reactivated=0, skipped_local=0, skipped_unmapped=0)
+
+
 class SessionIn(BaseModel):
     citizenid: str = Field(pattern=r"^[A-Za-z0-9]{3,50}$")
+    # What the game server says about this character right now (read server-side from QBCore, never from the player's client).
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    job: str | None = Field(default=None, min_length=1, max_length=50)
+    grade: int | None = Field(default=None, ge=0, le=100)
 
 
 @router.post("/bridge/session")
 async def issue_ticket(body: bytes = Depends(verified_body), db: Session = Depends(get_db)):
-    """The game server vouches for a character (it knows the player's source -> citizenid); we mint a one-time ticket for it.
-    The player's own client never supplies the citizen id, so it cannot ask for someone else's ticket."""
+    """The game server vouches for a character (it knows the player's source -> character); we bring that character's account up to
+    date from the job the game reports (creating it on first use) and mint a one-time ticket for it. The player's own client never
+    supplies any of this, so it cannot ask for someone else's ticket or claim a job."""
     s = get_settings()
     data = _parse(SessionIn, body)
-    user = db.scalar(select(m.User).where(m.User.citizen_id == data.citizenid))
+    if data.name and data.job is not None and data.grade is not None:
+        roles = {r.id: r.key for r in db.scalars(select(m.Role))}
+        user = _apply_player(db, Player(citizenid=data.citizenid, name=data.name, job=data.job, grade=data.grade),
+                             _mapping(db), roles, _default_role_id(db), _counters())
+        db.flush()
+    else:
+        user = db.scalar(select(m.User).where(m.User.citizen_id == data.citizenid))
     if user is None or not user.is_active or user.role_id is None:
+        db.commit()
         raise HTTPException(404, "No newsroom account for this character")
     recent = db.scalar(select(func.count()).select_from(m.BridgeTicket).where(
         m.BridgeTicket.user_id == user.id, m.BridgeTicket.created_at > datetime.now(timezone.utc) - timedelta(minutes=1))) or 0
     if recent >= 5:
+        db.commit()
         raise HTTPException(429, "Too many login tickets requested")
     ticket = secrets.token_urlsafe(32)
     db.add(m.BridgeTicket(token_hash=hashlib.sha256(ticket.encode()).hexdigest(), user_id=user.id,
@@ -83,75 +167,35 @@ def exchange(data: ExchangeIn, request: Request, db: Session = Depends(get_db)):
     return {"access_token": create_access_token(user.id, user.token_version), "token_type": "bearer", "expires_in": s.ACCESS_TOKEN_MINUTES * 60}
 
 
-class Player(BaseModel):
-    citizenid: str = Field(pattern=r"^[A-Za-z0-9]{3,50}$")
-    name: str = Field(min_length=1, max_length=120)
-    job: str = Field(min_length=1, max_length=50)
-    grade: int = Field(ge=0, le=100)
-
-
 class SyncIn(BaseModel):
     players: list[Player] = Field(max_length=500)
 
 
 @router.post("/bridge/sync-staff")
 async def sync_staff(body: bytes = Depends(verified_body), db: Session = Depends(get_db)):
-    """QBCore is authoritative for employment. Employment maps to an application role through the configurable job/grade table.
-    Never touched: accounts created locally (administrators, password accounts) and roles set by hand (`role_locked`).
-    Absent players are left alone; only a player reported with an unmapped job loses access."""
+    """QBCore is authoritative for employment. Employment maps to an application role through the configurable job/grade table;
+    a reported player whose job is not mapped drops to the default role (freelancer). Never touched: accounts created locally
+    (administrators, password accounts) and roles set by hand (`role_locked`). Absent players are left alone."""
     data = _parse(SyncIn, body)
-    mapping = {(j.job_name, j.grade_level): j.role_id for j in db.scalars(select(m.JobGradeMapping))}
+    mapping, default_role_id = _mapping(db), _default_role_id(db)
     roles = {r.id: r.key for r in db.scalars(select(m.Role))}
-    out = dict(created=0, updated=0, role_changed=0, deactivated=0, reactivated=0, skipped_local=0, skipped_unmapped=0)
+    out = _counters()
     for p in data.players:
-        user = db.scalar(select(m.User).where(m.User.citizen_id == p.citizenid))
-        role_id = mapping.get((p.job, p.grade))
-        if user is not None and user.source == "local":
-            out["skipped_local"] += 1
-            continue
-        if role_id is None:  # not newsroom staff (any more)
-            if user is not None and user.is_active:
-                user.is_active, user.employment_status, user.employment_job, user.employment_grade = False, "former", p.job, p.grade
-                user.token_version += 1  # sessions end immediately
-                audit.record(db, None, "bridge.deactivated", "user", user.id, detail={"job": p.job, "grade": p.grade})
-                out["deactivated"] += 1
-            else:
-                out["skipped_unmapped"] += 1
-            continue
-        if user is None:
-            user = m.User(citizen_id=p.citizenid, display_name=clean_text(p.name, 120), role_id=role_id, source="fivem",
-                          employment_job=p.job, employment_grade=p.grade, employment_status="active")
-            db.add(user)
-            db.flush()
-            audit.record(db, None, "bridge.user_created", "user", user.id, detail={"role": roles[role_id]})
-            out["created"] += 1
-            continue
-        changed = False
-        if not user.is_active and user.employment_status == "former":  # deactivated by an earlier sync, not by a person
-            user.is_active, user.employment_status, changed = True, "active", True
-            audit.record(db, None, "bridge.reactivated", "user", user.id)
-            out["reactivated"] += 1
-        user.source = "fivem"
-        user.display_name = clean_text(p.name, 120) or user.display_name
-        user.employment_job, user.employment_grade = p.job, p.grade
-        if user.role_id != role_id and not user.role_locked and user.is_active:
-            audit.record(db, None, "bridge.role_changed", "user", user.id, detail={"from": roles.get(user.role_id), "to": roles[role_id]})
-            user.role_id = role_id
-            user.token_version += 1
-            out["role_changed"] += 1
-            changed = True
-        elif user.role_id is None and user.is_active:
-            user.role_id = role_id
-        out["updated"] += int(changed)
+        _apply_player(db, p, mapping, roles, default_role_id, out)
     db.commit()
     return out
 
 
 @router.get("/bridge/staff-ids")
 async def staff_ids(body: bytes = Depends(verified_body), db: Session = Depends(get_db)):
-    """Citizen ids of accounts that employment sync manages. The game server includes them in its next report even if their job
-    changed, so a dismissal made while the player was offline still reaches the platform."""
-    rows = db.scalars(select(m.User.citizen_id).where(m.User.citizen_id.is_not(None), m.User.source.in_(["fivem", "legacy"])).order_by(m.User.id).limit(2000))
+    """Citizen ids of newsroom staff that employment sync manages (everyone above the default role). The game server includes them in
+    its next report even if their job changed, so a dismissal made while the player was offline still reaches the platform.
+    Freelancers are not listed: their account is brought up to date whenever they open the tablet."""
+    q = select(m.User.citizen_id).where(m.User.citizen_id.is_not(None), m.User.source.in_(["fivem", "legacy"]))
+    default_role_id = _default_role_id(db)
+    if default_role_id is not None:
+        q = q.where(m.User.role_id.is_distinct_from(default_role_id))
+    rows = db.scalars(q.order_by(m.User.id).limit(2000))
     return {"citizenids": list(rows)}
 
 

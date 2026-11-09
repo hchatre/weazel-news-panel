@@ -25,7 +25,7 @@ function RegisterCommand(name, fn) CMD[name] = fn end
 function AddEventHandler(name, fn) H[name] = fn end
 function RegisterNetEvent(name, fn) if fn then H[name] = fn end end
 function TriggerEvent(name, ...) if H[name] then H[name](...) end end
-function TriggerClientEvent(ev, target, payload) py.client(ev, target, payload) end
+function TriggerClientEvent(ev, target, payload, extra) py.client(ev, target, payload, extra) end
 json = { decode = function(s) return py.decode(s) end }
 MySQL = { query = { await = function(sql, params) return py.query(sql, params) end } }
 bridge = {}
@@ -52,7 +52,7 @@ class Env:
     def __init__(self, convars=None):
         self.lua = LuaRuntime(unpack_returned_tuples=True)
         self.convars = convars if convars is not None else {"weazel_bridge_secret": "s" * 40, "weazel_api_url": "http://127.0.0.1:8000"}
-        self.clock, self.chats, self.bridge_calls, self.queries = 0, [], [], []
+        self.clock, self.chats, self.bridge_calls, self.queries, self.reasons = 0, [], [], [], []
         self.bridge_reply = {"issueTicket": (True, 200, {"url": "http://localhost:3000/fivem-login?ticket=T1"}), "syncStaff": (True, 200, {}),
                              "staffIds": (True, 200, {"citizenids": []}), "pollNews": (True, 200, {"now": "T1", "broadcast": [], "personal": []})}
         self.db_rows = {}
@@ -60,7 +60,7 @@ class Env:
         self.phones = []
         py = self.lua.table_from({
             "convar": lambda n, d: self.convars.get(n, d), "now": lambda: self.clock,
-            "client": lambda ev, tgt, payload: self.chats.append((ev, tgt, self.to_py(payload))),
+            "client": lambda ev, tgt, payload, extra=None: (self.chats.append((ev, tgt, self.to_py(payload))), self.reasons.append((ev, tgt, extra))),
             "decode": lambda s: self.to_lua(pyjson.loads(s)), "phone": lambda num, t, c: self.phones.append((num, t, c)), "resource": lambda n: self.resources.get(n, "missing"), "query": self._query, "bridge": self._bridge,
         })
         self.lua.execute(PRELUDE, py)
@@ -121,7 +121,8 @@ class BridgeLuaTest(unittest.TestCase):
         e.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
         e.player(4, "REP2", "Ed", "Editor", "reporter", 2)
         e.command("newsroom", 3)
-        self.assertEqual(e.bridge_calls, [("issueTicket", ["REP1"])])  # citizenid comes from source 3's QBCore player
+        # citizenid, name, job and grade all come from source 3's QBCore player, never from a client
+        self.assertEqual(e.bridge_calls, [("issueTicket", ["REP1", {"name": "Jo Journalist", "job": "reporter", "grade": 1}])])
         self.assertEqual(len(e.says(3)), 1)
         self.assertIn("fivem-login?ticket=T1", e.says(3)[0])
         self.assertEqual(e.says(4), [])  # nobody else receives the link
@@ -132,23 +133,36 @@ class BridgeLuaTest(unittest.TestCase):
         e.player(4, "REP2", "Ed", "Editor", "reporter", 2)
         e.lua.execute("source = 3")
         e.event("weazel:server:ticket")
-        self.assertEqual(e.bridge_calls, [("issueTicket", ["REP1"])])
+        self.assertEqual(e.bridge_calls, [("issueTicket", ["REP1", {"name": "Jo Journalist", "job": "reporter", "grade": 1}])])
         self.assertEqual([(ev, t, p) for ev, t, p in e.chats if ev == "weazel:client:loadWeb"], [("weazel:client:loadWeb", 3, "http://localhost:3000/fivem-login?ticket=T1")])
         e.event("weazel:server:ticket")
         self.assertEqual(len(e.bridge_calls), 1)   # tapping repeatedly does not mint more tickets
 
-    def test_unlock_without_an_account_or_without_setup_falls_back_to_the_built_in_panel(self):
+    def test_unlock_failures_tell_the_tablet_why_and_never_more(self):
+        def why(e):
+            return [r for ev, t, r in e.reasons if ev == "weazel:client:loadWeb"][-1]
         e = Env()
         e.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
         e.lua.execute("source = 3")
         e.bridge_reply["issueTicket"] = (True, 404, {})
         e.event("weazel:server:ticket")
-        self.assertEqual([p for ev, t, p in e.chats if ev == "weazel:client:loadWeb"], [None])
+        self.assertEqual(([p for ev, t, p in e.chats if ev == "weazel:client:loadWeb"], why(e)), ([None], "noaccount"))
+        e.clock = 5000
+        e.bridge_reply["issueTicket"] = (False, 0, {})
+        e.event("weazel:server:ticket")
+        self.assertEqual(why(e), "unavailable")
         off = Env(convars={})
         off.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
         off.lua.execute("source = 3")
         off.event("weazel:server:ticket")
-        self.assertEqual((off.bridge_calls, [p for ev, t, p in off.chats if ev == "weazel:client:loadWeb"]), ([], [None]))
+        self.assertEqual((off.bridge_calls, why(off)), ([], "unavailable"))
+
+    def test_an_unemployed_character_is_sent_as_such_so_the_api_can_make_them_a_freelancer(self):
+        e = Env()
+        e.player(3, "FREE1", "Sam", "Free", "unemployed", 0)
+        e.lua.execute("source = 3")
+        e.event("weazel:server:ticket")
+        self.assertEqual(e.bridge_calls, [("issueTicket", ["FREE1", {"name": "Sam Free", "job": "unemployed", "grade": 0}])])
 
     def test_cooldown_unknown_account_outage_and_console(self):
         e = Env()

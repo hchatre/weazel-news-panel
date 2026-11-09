@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import models as m
 from app.permissions import (
-    DEFAULT_CATEGORIES, DEFAULT_JOB_MAPPINGS, DEFAULT_LOOKUPS, DEFAULT_ROLES, DEFAULT_TRANSITIONS, PERMISSIONS,
+    DEFAULT_CATEGORIES, DEFAULT_JOB_MAPPINGS, DEFAULT_LOOKUPS, DEFAULT_ROLES, DEFAULT_TRANSITIONS, OLD_DEFAULT_JOB_MAPPINGS, PERMISSIONS,
 )
 
 
@@ -39,7 +39,13 @@ def seed_defaults(db: Session) -> None:
                 db.add(m.RolePermission(role_id=role.id, permission_key=p))
         db.flush()
 
-    have = {(j.job_name, j.grade_level) for j in db.scalars(select(m.JobGradeMapping))}
+    current = list(db.scalars(select(m.JobGradeMapping)))
+    if sorted((j.job_name, j.grade_level, next((k for k, r in roles.items() if r.id == j.role_id), None)) for j in current) == sorted(OLD_DEFAULT_JOB_MAPPINGS):
+        for j in current:   # still the untouched old defaults: move to the current ones. Anything an administrator edited is left alone.
+            db.delete(j)
+        db.flush()
+        current = []
+    have = {(j.job_name, j.grade_level) for j in current}
     for job, grade, role_key in DEFAULT_JOB_MAPPINGS:
         if (job, grade) not in have:
             db.add(m.JobGradeMapping(job_name=job, grade_level=grade, role_id=roles[role_key].id))

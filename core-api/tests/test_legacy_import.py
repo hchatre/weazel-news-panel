@@ -1,4 +1,4 @@
-"""Importer tests. The MySQL-backed ones read the real legacy schema (install.sql) loaded with tests/fixtures/legacy_seed.sql
+"""Importer tests. The MySQL-backed ones read the real legacy schema (legacy_schema.sql) loaded with tests/fixtures/legacy_seed.sql
 into a local MariaDB; they are skipped when that server is not running."""
 import copy
 import os

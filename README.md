@@ -1,36 +1,14 @@
-# qb-weazel-ui
+# Weazel News Intelligence System
 
-**Weazel News Panel for QBCore.** Articles (draft, pending, published), likes and comments, investigation
-dossiers with a rumour / confirmed / denied timeline, published-article notifications, and staff administration
-(recruit, change grade, fire) for the `reporter` job.
+A newsroom platform for a FiveM QBCore roleplay server: articles with an editorial workflow, investigations, evidence, staff and roles, an AI workspace (suggestions only), and a tablet inside the game that shows the web app signed in as the character you play.
 
-> This branch (`hotfix/phase1-security`) is a security hardening of the original resource. The larger
-> Weazel News Intelligence System (web app, API, FiveM bridge) is planned in `docs/phase-1-audit.md`.
+| Folder | What it is |
+|---|---|
+| `core-api/` | FastAPI + PostgreSQL API: accounts, roles, workflow, evidence, audit, the signed FiveM bridge, the one-time importer for the old panel's data. |
+| `web/` | Next.js web app (English / French). |
+| `fivem/` | The FiveM resource: only the tablet (lock screen, then the web app in a frame), the LB Phone icon, and the bridge to the API. Copy this folder into your server's `resources`. |
+| `docs/` | Deployment, Windows first run, security review, phase notes, tablet and in-game news. Start with `docs/WINDOWS-FIRST-RUN.md` and `docs/DEPLOYMENT.md`. |
 
-## Requirements
+Characters: any character can open the newsroom. Reporter grades map to newsroom roles (editable in the web app); everyone else is a Freelancer. Details in `fivem/README.md` and `docs/tablet-ui.md`.
 
-- `qb-core`, `oxmysql`
-- No upload service is used. Article images are plain `https://` URLs. (Older READMEs mentioned `lb-upload`; that code never existed.)
-- The phone app (`client/phone.lua`, `html/phone.*`) is **disabled** and incomplete: it needs a server feed event that does not exist. It is not part of this release.
-
-## Install
-
-1. Put the folder in `resources/` and import `install.sql` (tables are `CREATE TABLE IF NOT EXISTS`, safe on an existing database).
-2. **Existing servers:** back up, then run `sql/001_author_citizenid.sql` once. Without it everything works, but draft ownership is checked by character name (old behaviour).
-3. Copy the convars from `server.cfg.example` into your `server.cfg` (no Discord webhooks are used any more), then `ensure` the resource.
-
-## Use
-
-- `/weazel` opens the panel. The **server** decides who may open it (`weazel_public_access`).
-- Permissions follow the `reporter` job grade: 0 Intern, 1 Journalist, 2 Editor, 3 CEO.
-  Grade 3 can recruit, change grades and fire, but only journalists of a **lower** rank, never themselves,
-  never above their own grade, and never players with another job.
-
-## Tests
-
-```
-pip install lupa playwright
-python3 -m unittest discover -s tests/lua        # server logic with stubbed QBCore/oxmysql/LB Phone
-CHROME_PATH=/path/to/chrome python3 -m unittest discover -s tests/nui   # NUI in headless Chrome
-```
-These do not replace testing in a real FiveM server. See `docs/security-checklist.md`.
+Tests: `core-api` (`pytest`), `fivem/tests` (Lua and tablet page), `web/e2e` (browser). None of them replaces testing in a real FiveM server.

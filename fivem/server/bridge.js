@@ -55,9 +55,12 @@ function client(cfg) {
   return {
     request: (o) => request({ ...cfg, ...o }),
     /** Ask for a one-time login ticket for a character the SERVER identified (never a value supplied by a client). */
-    issueTicket: async (citizenid) => {
+    issueTicket: async (citizenid, info) => {
       if (!CID.test(String(citizenid))) throw new Error('invalid citizenid');
-      return request({ ...cfg, path: '/api/v1/bridge/session', body: { citizenid } });
+      // info = { name, job, grade } as the SERVER read them from QBCore: the account is brought up to date (or created) from them
+      const body = { citizenid };
+      if (info && info.name && info.job !== undefined && info.grade !== undefined) Object.assign(body, { name: String(info.name), job: String(info.job), grade: Number(info.grade) });
+      return request({ ...cfg, path: '/api/v1/bridge/session', body });
     },
     syncStaff: (players) => request({ ...cfg, path: '/api/v1/bridge/sync-staff', body: { players } }),
     staffIds: () => request({ ...cfg, method: 'GET', path: '/api/v1/bridge/staff-ids' }),
@@ -75,7 +78,7 @@ if (typeof GetCurrentResourceName === 'function') {
     let api; try { api = client(cfg()); } catch (e) { return cb(false, 0, null); }
     fn(api, ...args).then((r) => cb(true, r.status, r.json)).catch(() => cb(false, 0, null));   // errors never reach the player
   };
-  exports('issueTicket', wrap((api, cid) => api.issueTicket(cid)));
+  exports('issueTicket', wrap((api, cid, info) => api.issueTicket(cid, info)));
   exports('syncStaff', wrap((api, players) => api.syncStaff(players)));
   exports('staffIds', wrap((api) => api.staffIds()));
   exports('pollNews', wrap((api, since, online) => api.pollNews(since, online)));

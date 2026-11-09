@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     BRIDGE_SECRET: str = ""
     BRIDGE_MAX_SKEW_SECONDS: int = 60
     TICKET_TTL_SECONDS: int = 60
+    # Role given to any in-game character whose job is not mapped to a newsroom role (unemployed, other jobs, former staff).
+    # Empty = such characters get no account at all.
+    FIVEM_DEFAULT_ROLE: str = "freelancer"
     PUBLIC_BASE_URL: str = "http://localhost:3000"
     # News reaches players in game: the game server polls the API (like the DOJ tablet). No Discord webhooks.
     NEWS_POLL_MAX_ITEMS: int = 20

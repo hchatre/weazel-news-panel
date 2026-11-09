@@ -1,0 +1,15 @@
+# Add to your server.cfg. Never commit your real values.
+
+ensure oxmysql
+ensure qb-core
+ensure lb-phone       # optional: gives the phone icon. /weazel works without it.
+ensure qb-weazel-ui   # use your real resource folder name
+
+# --- Weazel web platform (required: the tablet shows the web app) ---------------------------------------
+# Address of the API as the GAME SERVER reaches it.
+set weazel_api_url "http://127.0.0.1:8000"
+# At least 32 random characters, identical to WEAZEL_BRIDGE_SECRET on the API. Never commit the real value.
+set weazel_bridge_secret "REPLACE_WITH_32_PLUS_RANDOM_CHARACTERS"
+# How often (seconds, minimum 5) the game server asks the web platform what is new for the players online.
+set weazel_news_poll_seconds 20
+# Old convars (weazel_public_access, weazel_block_self_approval, weazel_webhook_*) are no longer used: delete them.

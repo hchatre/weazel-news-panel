@@ -16,7 +16,7 @@ from app import models as m
 from app.services.bridge import sign as py_sign
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-BRIDGE_JS = os.path.join(ROOT, "server", "bridge.js")
+BRIDGE_JS = os.path.join(ROOT, "fivem", "server", "bridge.js")
 SECRET = "n" * 40
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 
@@ -59,18 +59,20 @@ def test_node_and_python_sign_identically():
 
 
 def test_full_flow_from_node_to_api(api_url, db):
-    players = [{"citizenid": "ABC123", "name": "Jo Reporter", "job": "reporter", "grade": 1}, {"citizenid": "COP999", "name": "Cop", "job": "police", "grade": 4}]
+    players = [{"citizenid": "ABC123", "name": "Jo Reporter", "job": "reporter", "grade": 0}, {"citizenid": "COP999", "name": "Cop", "job": "police", "grade": 4}]
     r = node(f"return c.syncStaff({json.dumps(players)})", api_url)
-    assert r["status"] == 200 and r["json"]["created"] == 1 and r["json"]["skipped_unmapped"] == 1
+    assert r["status"] == 200 and r["json"]["created"] == 2 and r["json"]["skipped_unmapped"] == 0
     db.expire_all()
     assert db.scalar(select(m.User).where(m.User.citizen_id == "ABC123")).role.key == "journalist"
     ids = node("return c.staffIds()", api_url)  # a signed GET with an empty body
-    assert ids["status"] == 200 and ids["json"]["citizenids"] == ["ABC123"]
+    assert ids["status"] == 200 and ids["json"]["citizenids"] == ["ABC123"]   # the police officer is a freelancer: not listed
     t = node("return c.issueTicket('ABC123')", api_url)
     assert t["status"] == 200 and t["json"]["url"].startswith("http://localhost:3000/fivem-login?ticket=")
     ex = httpx.post(f"{api_url}/api/v1/auth/fivem-exchange", json={"ticket": t["json"]["ticket"]})
     assert ex.status_code == 200
     assert node("return c.issueTicket('NOBODY1')", api_url)["status"] == 404
+    info = node("return c.issueTicket('NEWBIE1', {name:'New Person', job:'unemployed', grade:0})", api_url)
+    assert info["status"] == 200   # first open creates the account from what the server reports
     assert "error" in node("return c.issueTicket('bad id!')", api_url)  # refused before anything is sent
 
 
