@@ -39,7 +39,7 @@ def sync(client, *players, **kw):
     return post(client, "/bridge/sync-staff", {"players": list(players)}, **kw)
 
 
-def pl(cid, job="reporter", grade=1, name="Test Person"):
+def pl(cid, job="reporter", grade=0, name="Test Person"):
     return {"citizenid": cid, "name": name, "job": job, "grade": grade}
 
 
@@ -78,7 +78,7 @@ def test_tampered_body_is_rejected(client, db):
     raw = json.dumps({"players": [pl("ABC123")]}).encode()
     ts, nonce = str(int(time.time())), uuid.uuid4().hex
     sig = sign(SECRET, "POST", f"{API}/bridge/sync-staff", ts, nonce, raw)
-    tampered = raw.replace(b"grade\": 1", b"grade\": 3")
+    tampered = raw.replace(b"grade\": 0", b"grade\": 3")
     r = client.post(f"{API}/bridge/sync-staff", content=tampered, headers={"X-Weazel-Timestamp": ts, "X-Weazel-Nonce": nonce, "X-Weazel-Signature": sig})
     assert tampered != raw and r.status_code == 401
 
@@ -102,7 +102,7 @@ def test_old_nonces_are_purged(client, db):
 
 # ------------------------------------------------------------------------------------------------ tickets
 def test_ticket_flow_single_use_expiring_hashed(client, db):
-    assert sync(client, pl("ABC123", grade=1)).json()["created"] == 1
+    assert sync(client, pl("ABC123", grade=0)).json()["created"] == 1
     t = post(client, "/bridge/session", {"citizenid": "ABC123"})
     assert t.status_code == 200
     body = t.json()
@@ -145,16 +145,18 @@ def test_session_needs_an_existing_active_account_and_is_rate_limited(client, db
 
 
 # ------------------------------------------------------------------------------------------------ staff sync
-def test_sync_maps_employment_to_roles_and_ignores_non_staff(client, db):
-    r = sync(client, pl("AAA111", grade=0), pl("BBB222", grade=2), pl("CCC333", job="police", grade=4), pl("DDD444", grade=3)).json()
-    assert r["created"] == 3 and r["skipped_unmapped"] == 1
-    assert [user(db, c).role.key for c in ("AAA111", "BBB222", "DDD444")] == ["intern", "editor", "editor_in_chief"]
-    assert user(db, "CCC333") is None  # no account is created for non-staff
+def test_sync_maps_grades_to_roles_and_everyone_else_becomes_a_freelancer(client, db):
+    r = sync(client, pl("AAA111", grade=0), pl("BBB222", grade=2), pl("CCC333", job="police", grade=4), pl("DDD444", grade=3),
+             pl("EEE555", grade=4), pl("FFF666", grade=1), pl("GGG777", job="unemployed", grade=0)).json()
+    assert r["created"] == 7 and r["skipped_unmapped"] == 0
+    assert [user(db, c).role.key for c in ("AAA111", "FFF666", "BBB222", "DDD444", "EEE555")] == \
+        ["journalist", "senior_journalist", "editor", "editor_in_chief", "system_admin"]
+    assert [user(db, c).role.key for c in ("CCC333", "GGG777")] == ["freelancer", "freelancer"]   # police officer, unemployed: still get an account
     assert user(db, "AAA111").source == "fivem" and user(db, "AAA111").password_hash is None  # no password: ticket login only
 
 
 def test_promotion_and_dismissal_take_effect_immediately(client, db):
-    sync(client, pl("AAA111", grade=1))
+    sync(client, pl("AAA111", grade=0))
     u = user(db, "AAA111")
     old = auth(u)
     assert client.get(f"{API}/auth/me", headers=old).status_code == 200
@@ -162,12 +164,46 @@ def test_promotion_and_dismissal_take_effect_immediately(client, db):
     assert r["role_changed"] == 1 and user(db, "AAA111").role.key == "editor"
     assert client.get(f"{API}/auth/me", headers=old).status_code == 401  # old token no longer valid; permissions refresh at next login
     cur = auth(user(db, "AAA111"))
-    assert sync(client, pl("AAA111", job="unemployed", grade=0)).json()["deactivated"] == 1
+    assert sync(client, pl("AAA111", job="unemployed", grade=0)).json()["role_changed"] == 1   # dismissed: back to freelancer, not locked out
     assert client.get(f"{API}/auth/me", headers=cur).status_code == 401
-    assert user(db, "AAA111").employment_status == "former"
-    assert post(client, "/bridge/session", {"citizenid": "AAA111"}).status_code == 404
-    assert sync(client, pl("AAA111", grade=1)).json()["reactivated"] == 1  # hired again
-    assert user(db, "AAA111").is_active and user(db, "AAA111").role.key == "journalist"
+    assert user(db, "AAA111").employment_status == "former" and user(db, "AAA111").role.key == "freelancer" and user(db, "AAA111").is_active
+    assert post(client, "/bridge/session", {"citizenid": "AAA111"}).status_code == 200
+    r = sync(client, pl("AAA111", grade=1)).json()   # hired again
+    assert r["role_changed"] == 1 and user(db, "AAA111").role.key == "senior_journalist" and user(db, "AAA111").employment_status == "active"
+
+
+def test_opening_the_tablet_creates_and_updates_the_account_from_the_job_the_game_reports(client, db):
+    t = post(client, "/bridge/session", {"citizenid": "FREE001", "name": "Sam Free", "job": "unemployed", "grade": 0})
+    assert t.status_code == 200
+    ex = client.post(f"{API}/auth/fivem-exchange", json={"ticket": t.json()["ticket"]}).json()
+    me = client.get(f"{API}/auth/me", headers={"Authorization": f"Bearer {ex['access_token']}"}).json()
+    assert me["role"]["key"] == "freelancer" and me["display_name"] == "Sam Free"
+    assert post(client, "/bridge/session", {"citizenid": "FREE001", "name": "Sam Free", "job": "reporter", "grade": 3}).status_code == 200
+    assert user(db, "FREE001").role.key == "editor_in_chief"   # hired as chief since last time: the ticket reflects it
+    assert post(client, "/bridge/session", {"citizenid": "NEW0001"}).status_code == 404   # without a reported job nothing is created
+    assert post(client, "/bridge/session", {"citizenid": "NEW0001", "name": "X", "job": "police"}).status_code == 404   # incomplete: ignored
+
+
+def test_with_no_default_role_unmapped_characters_get_no_account(client, db):
+    s = get_settings()
+    old, s.FIVEM_DEFAULT_ROLE = s.FIVEM_DEFAULT_ROLE, ""
+    try:
+        assert post(client, "/bridge/session", {"citizenid": "FREE002", "name": "No Job", "job": "unemployed", "grade": 0}).status_code == 404
+        assert user(db, "FREE002") is None
+        sync(client, pl("AAA111", grade=2))
+        assert sync(client, pl("AAA111", job="unemployed", grade=0)).json()["deactivated"] == 1   # the old strict behaviour, if you want it
+    finally:
+        s.FIVEM_DEFAULT_ROLE = old
+
+
+def test_staff_ids_lists_staff_only_not_freelancers(client, db):
+    sync(client, pl("AAA111", grade=1), pl("FREE003", job="unemployed", grade=0))
+    ids = post(client, "/bridge/staff-ids", {}) if False else None
+    from app.services.bridge import sign
+    ts, nonce = str(int(time.time())), uuid.uuid4().hex
+    sig = sign(SECRET, "GET", f"{API}/bridge/staff-ids", ts, nonce, b"")
+    r = client.get(f"{API}/bridge/staff-ids", headers={"X-Weazel-Timestamp": ts, "X-Weazel-Nonce": nonce, "X-Weazel-Signature": sig})
+    assert r.status_code == 200 and r.json()["citizenids"] == ["AAA111"]
 
 
 def test_absent_players_manual_deactivation_and_local_accounts_are_left_alone(client, db):
@@ -197,7 +233,7 @@ def test_hand_assigned_roles_survive_syncs(client, db):
 def test_legacy_stub_is_matched_by_citizen_id_and_adopted(client, db):
     db.add(m.User(citizen_id="LEG123", display_name="LEG123", source="legacy", role_id=None))
     db.commit()
-    sync(client, pl("LEG123", grade=1, name="Real Name"))
+    sync(client, pl("LEG123", grade=0, name="Real Name"))
     u = user(db, "LEG123")
     assert u.source == "fivem" and u.display_name == "Real Name" and u.role.key == "journalist"
     assert db.scalar(select(func.count()).select_from(m.User).where(m.User.citizen_id == "LEG123")) == 1  # linked, not duplicated
@@ -310,3 +346,20 @@ def test_an_article_that_is_no_longer_public_is_not_broadcast(client, w, db):
     db.get(m.Article, art["id"]).status = "archived"   # published_at stays set, but the story is no longer public
     db.commit()
     assert poll(client, before, ["ANYONE1"]).json()["broadcast"] == []
+
+
+# ------------------------------------------------------------------------------------------- seeded job table
+def test_untouched_old_default_mappings_move_to_the_new_grades_but_edited_ones_stay(db):
+    from app.seed import seed_defaults
+    roles = {r.key: r.id for r in db.scalars(select(m.Role))}
+    db.query(m.JobGradeMapping).delete()
+    for g, k in enumerate(["intern", "journalist", "editor", "editor_in_chief"]):
+        db.add(m.JobGradeMapping(job_name="reporter", grade_level=g, role_id=roles[k]))
+    db.commit()
+    seed_defaults(db); db.commit()
+    now = {(j.grade_level): db.get(m.Role, j.role_id).key for j in db.scalars(select(m.JobGradeMapping))}
+    assert now == {0: "journalist", 1: "senior_journalist", 2: "editor", 3: "editor_in_chief", 4: "system_admin"}
+    db.get(m.JobGradeMapping, db.scalar(select(m.JobGradeMapping.id).where(m.JobGradeMapping.grade_level == 4))).role_id = roles["editor"]   # an administrator edits one
+    db.commit()
+    seed_defaults(db); db.commit()
+    assert {(j.grade_level): db.get(m.Role, j.role_id).key for j in db.scalars(select(m.JobGradeMapping))}[4] == "editor"   # re-seeding never overwrites it

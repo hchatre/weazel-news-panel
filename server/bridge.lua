@@ -13,7 +13,23 @@ local function chat(src, text)
     TriggerClientEvent('chat:addMessage', src, { color = { 200, 32, 42 }, args = { 'Weazel Newsroom', text } })
 end
 
--- /newsroom : the player gets a one-time link (valid ~60 seconds) that signs them in to the web app on this PC.
+-- The character as the SERVER knows it (QBCore), in the shape the API wants. Nothing here comes from a client.
+local function ticketInfo(player)
+    local info = player.PlayerData.charinfo or {}
+    local j = player.PlayerData.job or {}
+    local g = j.grade
+    local grade = type(g) == 'table' and (g.level or 0) or g or 0
+    local name = ((info.firstname or '') .. ' ' .. (info.lastname or '')):gsub('^%s+', ''):gsub('%s+$', '')
+    return { name = name ~= '' and name or player.PlayerData.citizenid, job = j.name or 'unemployed', grade = tonumber(grade) or 0 }
+end
+
+-- Any character may open the newsroom: the API gives the account a role from the job (freelancer when the job is not a newsroom job).
+local function whyNot(ok, status)
+    if ok and status == 404 then return 'noaccount' end
+    return 'unavailable'
+end
+
+-- /newsroom : a one-time link (valid ~60 seconds) that signs the player in to the web app in a browser on this PC.
 RegisterCommand('newsroom', function(src)
     if src == 0 then return end
     if not configured() then return chat(src, 'The newsroom web app is not set up on this server.') end
@@ -26,29 +42,29 @@ RegisterCommand('newsroom', function(src)
         if ok and status == 200 and body and body.url then
             chat(src, 'Open this link in your browser within a minute: ' .. body.url)  -- sent to this player only
         elseif ok and status == 404 then
-            chat(src, 'You do not have a newsroom account. Ask a chief to hire you.')
+            chat(src, 'You do not have a newsroom account.')
         else
             chat(src, 'The newsroom is unavailable right now.')
         end
-    end, player.PlayerData.citizenid)
+    end, player.PlayerData.citizenid, ticketInfo(player))
 end, false)
 
--- The tablet's lock screen asks for a ticket when the player taps it. Identity comes from the server (source -> character);
--- the answer is a single-use link for THIS player only, loaded inside the tablet. nil means "use the built-in panel".
+-- The tablet's lock screen asks for a ticket when the player taps it. Identity and job come from the server (source -> character);
+-- the answer is a single-use link for THIS player only, loaded inside the tablet. On failure the tablet gets a reason, never details.
 local lastTicket = {}
 RegisterNetEvent('weazel:server:ticket', function()
     local src = source
     local now = GetGameTimer()
     if lastTicket[src] and now - lastTicket[src] < 3000 then return end
     lastTicket[src] = now
-    if not configured() then return TriggerClientEvent('weazel:client:loadWeb', src, nil) end
+    if not configured() then return TriggerClientEvent('weazel:client:loadWeb', src, nil, 'unavailable') end
     local player = QBCore.Functions.GetPlayer(src)
     if not player then return end
     exports[GetCurrentResourceName()]:issueTicket(function(ok, status, body)
         local url = ok and status == 200 and body and body.url or nil
-        print(('[weazel] tablet sign-in for %s: HTTP %s, frame address %s'):format(tostring(src), tostring(status), url and (url:match('^(https?://[^/]+)') or '?') or 'none (built-in panel)'))   -- never prints the ticket
-        TriggerClientEvent('weazel:client:loadWeb', src, url)
-    end, player.PlayerData.citizenid)
+        print(('[weazel] tablet sign-in for %s: HTTP %s, frame address %s'):format(tostring(src), tostring(status), url and (url:match('^(https?://[^/]+)') or '?') or 'none'))   -- never prints the ticket
+        TriggerClientEvent('weazel:client:loadWeb', src, url, (not url) and whyNot(ok, status) or nil)
+    end, player.PlayerData.citizenid, ticketInfo(player))
 end)
 
 AddEventHandler('playerDropped', function() lastAsk[source] = nil; lastTicket[source] = nil end)

@@ -1,3 +1,4 @@
+-- The OLD panel's MySQL schema. Kept only so the one-time importer can be tested; the FiveM resource no longer uses these tables (it never drops them).
 -- Tables pour Weazel News
 
 CREATE TABLE IF NOT EXISTS `rp_articles` (

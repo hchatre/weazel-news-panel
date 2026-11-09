@@ -9,7 +9,7 @@ NEW_USER = {"display_name": "New Hire", "email": "new.hire@weazel.test", "passwo
 def test_only_settings_managers_see_roles_and_all_default_roles_exist(client, w):
     assert client.get(f"{API}/admin/roles", headers=w.h(w.eic)).status_code == 403  # EiC has no settings.manage by default
     roles = client.get(f"{API}/admin/roles", headers=w.h(w.admin)).json()
-    assert {r["key"] for r in roles} == {"intern", "journalist", "senior_journalist", "editor", "investigative_editor", "editor_in_chief", "system_admin"}
+    assert {r["key"] for r in roles} == {"freelancer", "intern", "journalist", "senior_journalist", "editor", "investigative_editor", "editor_in_chief", "system_admin"}
     admin_role = next(r for r in roles if r["key"] == "system_admin")
     assert len(admin_role["permissions"]) == len(client.get(f"{API}/admin/permissions", headers=w.h(w.admin)).json())
 

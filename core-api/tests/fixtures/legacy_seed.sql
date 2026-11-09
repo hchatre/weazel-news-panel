@@ -1,4 +1,4 @@
--- Realistic legacy data for importer tests. Loaded into a MySQL/MariaDB database that already has install.sql applied.
+-- Realistic legacy data for importer tests. Loaded into a MySQL/MariaDB database that already has legacy_schema.sql applied.
 SET time_zone = '+00:00';
 DELETE FROM article_likes; DELETE FROM article_comments; DELETE FROM rp_dossier_entries; DELETE FROM rp_dossiers; DELETE FROM rp_articles;
 
