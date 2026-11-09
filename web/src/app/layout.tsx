@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/lib/auth";
+import FrameEscape from "@/components/FrameEscape";
 
 export const metadata: Metadata = { title: "Weazel Newsroom", description: "Newsroom operations and editorial intelligence" };
 
@@ -12,7 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head>
-      <body><I18nProvider><AuthProvider>{children}</AuthProvider></I18nProvider></body>
+      <body><I18nProvider><AuthProvider>{children}</AuthProvider><FrameEscape /></I18nProvider></body>
     </html>
   );
 }

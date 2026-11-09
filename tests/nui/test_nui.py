@@ -73,6 +73,7 @@ class NuiTest(unittest.TestCase):
     def ceo(self):
         self.post(action="open")
         self.page.click("#lock")   # the tablet always opens on the lock screen
+        self.post(action="loadWeb", url=None)   # no web newsroom available: the built-in panel is shown
         self.page.wait_for_selector("#tablet:not(.locked)")
         self.post(action="setRole", role="reporter", grade=3, name="Chief One")
 
@@ -164,6 +165,8 @@ class NuiTest(unittest.TestCase):
         self.assertEqual(self.page.inner_text("#lockTime"), "07:05")
         self.assertEqual(self.page.inner_text("#lockDay"), "Monday, 3 November")
         self.page.click("#lock")
+        self.assertEqual([c["event"] for c in self.calls()], ["unlock"])   # the page only asks; it never picks a URL itself
+        self.post(action="loadWeb", url=None)
         self.page.wait_for_selector("#tablet:not(.locked)")
         self.assertTrue(self.page.is_visible("#app"))
         self.page.wait_for_selector("#lock", state="hidden")
@@ -172,10 +175,43 @@ class NuiTest(unittest.TestCase):
         self.post(action="open")
         self.page.focus("#lock")
         self.page.keyboard.press("Enter")
+        self.post(action="loadWeb", url=None)
         self.page.wait_for_selector("#tablet:not(.locked)")
         self.page.click("#homeBar")
         self.page.wait_for_selector("#tablet.locked")
         self.assertFalse(self.page.is_visible("#app"))
+
+    def test_unlock_loads_the_web_newsroom_in_a_frame_and_closing_clears_it(self):
+        self.post(action="open")
+        self.page.click("#lock")
+        self.post(action="loadWeb", url="http://127.0.0.1:1/fivem-login?ticket=T")
+        self.page.wait_for_selector("#tablet:not(.locked)")
+        self.assertTrue(self.page.is_visible("#webFrame"))
+        self.assertFalse(self.page.is_visible("#app"))
+        self.assertIn("fivem-login?ticket=T", self.page.get_attribute("#webFrame", "src"))
+        self.page.click("#homeBar")                      # relock keeps the page, so unlocking again needs no new ticket
+        self.page.wait_for_selector("#tablet.locked")
+        n = len(self.calls())
+        self.page.click("#lock")
+        self.page.wait_for_selector("#tablet:not(.locked)")
+        self.assertEqual(len(self.calls()), n)
+        self.post(action="close")
+        self.assertEqual(self.page.get_attribute("#webFrame", "src"), "about:blank")
+
+    def test_only_http_urls_are_framed_and_a_failed_ticket_shows_the_built_in_panel(self):
+        for bad in ("javascript:window.__pwned=1", "data:text/html,x", "file:///etc/passwd"):
+            self.post(action="open")
+            self.page.click("#lock")
+            self.post(action="loadWeb", url=bad)
+            self.assertFalse(self.page.is_visible("#webFrame"))
+            self.assertTrue(self.page.is_visible("#app"))
+            self.post(action="close")
+        self.assertFalse(self.pwned())
+
+    def test_escape_inside_the_web_panel_closes_the_tablet(self):
+        self.post(action="open")
+        self.post(type="weazel-tablet-close")
+        self.assertIn("close", [c["event"] for c in self.calls()])
 
     def test_lock_screen_shows_the_latest_headlines_as_text_only(self):
         self.post(action="open")
@@ -195,6 +231,7 @@ class NuiTest(unittest.TestCase):
         self.assertEqual(self.page.inner_text("#lockTime"), "00:00")
         self.assertEqual(self.page.inner_text("#lockDay"), "Sunday, 1 January")
         self.page.click("#lock")
+        self.post(action="loadWeb", url=None)
         self.page.wait_for_selector("#tablet:not(.locked)")
         self.post(action="close")
         self.assertFalse(self.page.is_visible("#tablet"))

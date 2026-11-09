@@ -23,6 +23,7 @@ function Wait() end
 function CreateThread(fn) THREADS[#THREADS+1] = fn end   -- not run: the loop is infinite; the work is reachable through the event below
 function RegisterCommand(name, fn) CMD[name] = fn end
 function AddEventHandler(name, fn) H[name] = fn end
+function RegisterNetEvent(name, fn) if fn then H[name] = fn end end
 function TriggerEvent(name, ...) if H[name] then H[name](...) end end
 function TriggerClientEvent(ev, target, payload) py.client(ev, target, payload) end
 json = { decode = function(s) return py.decode(s) end }
@@ -124,6 +125,30 @@ class BridgeLuaTest(unittest.TestCase):
         self.assertEqual(len(e.says(3)), 1)
         self.assertIn("fivem-login?ticket=T1", e.says(3)[0])
         self.assertEqual(e.says(4), [])  # nobody else receives the link
+
+    def test_unlocking_the_tablet_sends_the_ticket_url_to_that_player_only(self):
+        e = Env()
+        e.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
+        e.player(4, "REP2", "Ed", "Editor", "reporter", 2)
+        e.lua.execute("source = 3")
+        e.event("weazel:server:ticket")
+        self.assertEqual(e.bridge_calls, [("issueTicket", ["REP1"])])
+        self.assertEqual([(ev, t, p) for ev, t, p in e.chats if ev == "weazel:client:loadWeb"], [("weazel:client:loadWeb", 3, "http://localhost:3000/fivem-login?ticket=T1")])
+        e.event("weazel:server:ticket")
+        self.assertEqual(len(e.bridge_calls), 1)   # tapping repeatedly does not mint more tickets
+
+    def test_unlock_without_an_account_or_without_setup_falls_back_to_the_built_in_panel(self):
+        e = Env()
+        e.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
+        e.lua.execute("source = 3")
+        e.bridge_reply["issueTicket"] = (True, 404, {})
+        e.event("weazel:server:ticket")
+        self.assertEqual([p for ev, t, p in e.chats if ev == "weazel:client:loadWeb"], [None])
+        off = Env(convars={})
+        off.player(3, "REP1", "Jo", "Journalist", "reporter", 1)
+        off.lua.execute("source = 3")
+        off.event("weazel:server:ticket")
+        self.assertEqual((off.bridge_calls, [p for ev, t, p in off.chats if ev == "weazel:client:loadWeb"]), ([], [None]))
 
     def test_cooldown_unknown_account_outage_and_console(self):
         e = Env()

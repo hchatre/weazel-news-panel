@@ -1,39 +1,39 @@
-@import "@fontsource/barlow/400.css";
-@import "@fontsource/barlow/500.css";
-@import "@fontsource/barlow/600.css";
-@import "@fontsource/barlow-condensed/600.css";
-@import "@fontsource/barlow-condensed/700.css";
-@import "@fontsource/barlow-condensed/800.css";
+@import "@fontsource/montserrat/400.css";
+@import "@fontsource/montserrat/500.css";
+@import "@fontsource/montserrat/600.css";
+@import "@fontsource/montserrat/700.css";
+@import "@fontsource/montserrat/800.css";
 @import "@fontsource/source-serif-4/400.css";
 @import "@fontsource/source-serif-4/600.css";
 @tailwind base; @tailwind components; @tailwind utilities;
 
-/* Studio palette. --set is the navy of the set itself (bars, rail); the page is the wall, panels are the desks. */
-:root { --bg: 229 233 240; --panel: 255 255 255; --raised: 238 241 247; --line: 205 212 226; --ink: 10 31 68; --muted: 84 99 128; --brand: 214 16 42; --ok: 10 135 90; --warn: 176 105 0; --set: 10 31 68; }
-.dark { --bg: 8 20 46; --panel: 15 34 74; --raised: 23 46 94; --line: 42 66 116; --ink: 234 239 249; --muted: 150 167 198; --brand: 255 71 92; --ok: 62 201 144; --warn: 247 177 51; --set: 5 13 33; }
+/* Same look as the in-game tablet: deep navy night, a blue glow top-left, a red band, frosted rounded panels with a red edge. */
+:root { --bg: 232 236 246; --panel: 255 255 255; --raised: 238 241 250; --line: 208 215 232; --ink: 12 20 48; --muted: 90 102 135; --brand: 214 16 42; --ok: 10 135 90; --warn: 176 105 0; --set: 10 15 31; }
+.dark { --bg: 10 15 31; --panel: 18 27 56; --raised: 30 42 84; --line: 48 63 112; --ink: 238 242 252; --muted: 152 166 200; --brand: 255 74 94; --ok: 62 201 144; --warn: 247 177 51; --set: 7 11 24; }
 html { color-scheme: light dark; }
-body { @apply bg-bg font-sans text-ink antialiased; }
-h1, h2, h3 { @apply font-display; }
+body { @apply bg-bg font-sans text-ink antialiased; min-height: 100vh; }
+.dark body { background: radial-gradient(120% 90% at 20% 0%, #1b2f6b 0%, #0a0f1f 55%) fixed, #0a0f1f; }
+.dark body::before { content: ""; position: fixed; left: -10%; right: -10%; top: 62%; height: 18%; background: linear-gradient(90deg, #c0122e, #7d0c1a); transform: skewY(-9deg); opacity: .16; pointer-events: none; z-index: 0; }
+#__next, body > div { position: relative; z-index: 1; }
+h1, h2, h3 { @apply font-display; letter-spacing: -0.01em; }
 
-/* Shape language: the lower-third. Corners are cut, not rounded. */
 @layer utilities {
-.cut-tr { clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%); }
-.cut-br { clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%); }
+.cut-tr, .cut-br { border-radius: 16px; }
 }
 @layer components {
-.panel { @apply cut-tr bg-panel; }
-.card { @apply cut-tr bg-panel; }
+.panel { @apply rounded-2xl border border-line/70 bg-panel/80 backdrop-blur-md; box-shadow: 0 10px 30px rgb(0 0 0 / .18); }
+.card { @apply panel border-l-4 border-l-brand; }
 
-/* A tag the way a broadcast graphic draws one: a parallelogram, set in condensed type. */
-.chyron { @apply inline-flex items-center bg-raised px-3.5 py-[3px] font-display text-[0.85rem] font-bold uppercase leading-tight tracking-[0.05em] text-ink; clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%); }
+/* A tag: a small rounded pill, like the notification labels on the lock screen. */
+.chyron { @apply inline-flex items-center rounded-full bg-raised px-3 py-[3px] text-[0.72rem] font-bold uppercase leading-tight tracking-[0.06em] text-ink; }
 .chyron-brand { @apply bg-brand text-white; }
 .chyron-ok { background: rgb(var(--ok)); @apply text-white; }
 .chyron-warn { background: rgb(var(--warn)); @apply text-white; }
 .dark .chyron-ok, .dark .chyron-warn { @apply text-black; }
 
-.btn { @apply inline-flex items-center gap-2 bg-raised px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%); }
-.btn-primary { @apply bg-brand text-white hover:bg-brand/85; }
-.input { @apply w-full border-b-2 border-line bg-raised px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:border-brand focus-visible:outline-none; }
+.btn { @apply inline-flex items-center gap-2 rounded-xl bg-raised px-4 py-2 text-sm font-semibold text-ink transition duration-150 hover:-translate-y-px hover:bg-line active:translate-y-0 active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50; }
+.btn-primary { @apply bg-brand text-white hover:bg-brand/85; box-shadow: 0 6px 18px rgb(var(--brand) / .35); }
+.input { @apply w-full rounded-xl border border-line bg-raised px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:border-brand focus-visible:outline-none; }
 select.input { @apply pr-8; }
 .label { @apply mb-1 block text-sm font-semibold text-muted; }
 .rule { @apply border-t border-line; }

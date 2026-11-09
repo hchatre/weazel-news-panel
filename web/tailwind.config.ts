@@ -4,8 +4,8 @@ export default {
   content: ["./src/**/*.{ts,tsx}"],
   theme: { extend: {
     fontFamily: {
-      display: ['"Barlow Condensed"', "Barlow", "system-ui", "sans-serif"],
-      sans: ["Barlow", "system-ui", "Segoe UI", "sans-serif"],
+      display: ["Montserrat", "system-ui", "sans-serif"],
+      sans: ["Montserrat", "system-ui", "Segoe UI", "sans-serif"],
       serif: ['"Source Serif 4"', "Georgia", "serif"],
     },
     colors: {

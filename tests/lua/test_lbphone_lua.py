@@ -29,8 +29,11 @@ function TriggerServerEvent(ev, ...) py.server(ev, ...) end
 function PerformHttpRequest(url, cb, method, data, headers) local status, body = py.http(url, method); cb(status, body) end
 function print(...) py.print(...) end
 json = { decode = function(s) return py.decode(s) end }
+EVENTS = {}
+function TriggerEvent(n) EVENTS[#EVENTS + 1] = 'event:' .. n end
 exports = setmetatable({}, { __index = function(_, res)
-  return { AddCustomApp = function(self, def) return py.addapp(def) end }
+  return { AddCustomApp = function(self, def) LAST_DEF = def; return py.addapp(def) end,
+           ToggleOpen = function(self, open) EVENTS[#EVENTS + 1] = 'phone:' .. tostring(open) end }
 end })
 function fire(name, src, ...) source = src; H[name](...) end
 function nui(name, data, cb) NUI[name](data, cb) end
@@ -71,6 +74,8 @@ class Env:
     def to_py(self, x):
         if x is None or isinstance(x, (str, int, float, bool)):
             return x
+        if not hasattr(x, "keys"):
+            return "<function>"
         keys = list(x.keys())
         if not keys:
             return []
@@ -177,7 +182,8 @@ class ClientTest(unittest.TestCase):
         e = Env("client/lbphone.lua")
         e.fire("onResourceStart", 0, "lb-phone")
         (d,) = e.addapp_calls
-        self.assertEqual((d["identifier"], d["name"], d["ui"], d["defaultApp"]), ("weazel_news", "Weazel News", "weazel-test/html/lbphone/index.html", True))
+        self.assertEqual((d["identifier"], d["name"], d["defaultApp"], d["keepOpen"]), ("weazel_news", "Weazel News", True, True))
+        self.assertNotIn("ui", d)   # no page inside the phone: the icon opens the tablet
         self.assertEqual(d["icon"], "https://cfx-nui-weazel-test/html/logo.png")
         self.assertIn("registered", e.prints[-1])
         e.fire("onResourceStart", 0, "lb-phone")
@@ -185,6 +191,12 @@ class ClientTest(unittest.TestCase):
         e.fire("onResourceStop", 0, "lb-phone")
         e.fire("onResourceStart", 0, "lb-phone")
         self.assertEqual(len(e.addapp_calls), 2)  # lb-phone restarted: register again
+
+    def test_the_icon_closes_the_phone_then_asks_the_tablet_to_open(self):
+        e = Env("client/lbphone.lua")
+        e.fire("onResourceStart", 0, "lb-phone")
+        e.lua.execute("LAST_DEF.onUse()")
+        self.assertEqual(list(e.lua.globals().EVENTS.values()), ["phone:false", "event:weazel:client:requestOpen"])  # phone first, so they never fight over focus
 
     def test_registration_failure_is_reported_not_thrown(self):
         e = Env("client/lbphone.lua")

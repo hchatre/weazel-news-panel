@@ -12,6 +12,22 @@ RegisterCommand('weazel', function()
     TriggerServerEvent("weazel:server:openPanel")
 end)
 
+-- Phone (or anything else) asks to open the tablet: same path as /weazel, the server still decides who may open it.
+AddEventHandler("weazel:client:requestOpen", function()
+    if panelOpen or IsEntityDead(PlayerPedId()) then return end
+    TriggerServerEvent("weazel:server:openPanel")
+end)
+exports("OpenFromPhone", function() TriggerEvent("weazel:client:requestOpen") end)
+
+-- Tapping the lock screen: the client only asks. The server identifies the character itself and mints a one-time ticket.
+RegisterNUICallback("unlock", function(_, cb)
+    if panelOpen then TriggerServerEvent("weazel:server:ticket") end
+    cb({})
+end)
+RegisterNetEvent("weazel:client:loadWeb", function(url)
+    if panelOpen then SendNUIMessage({ action = "loadWeb", url = url }) end
+end)
+
 local function ClosePanel()
     if not panelOpen then return end
     panelOpen = false
