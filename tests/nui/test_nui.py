@@ -198,6 +198,24 @@ class NuiTest(unittest.TestCase):
         self.post(action="close")
         self.assertEqual(self.page.get_attribute("#webFrame", "src"), "about:blank")
 
+    def test_a_web_page_that_never_starts_falls_back_to_the_built_in_panel_and_reports_it(self):
+        self.page.evaluate("window.WEAZEL_WEB_TIMEOUT_MS = 300")
+        self.post(action="open")
+        self.post(action="loadWeb", url="http://127.0.0.1:1/fivem-login?ticket=T")
+        self.assertTrue(self.page.is_visible("#webFrame"))
+        self.page.wait_for_selector("#webFrame", state="hidden")
+        self.assertTrue(self.page.is_visible("#app"))
+        self.assertIn("webFailed", [c["event"] for c in self.calls()])
+
+    def test_the_ready_message_cancels_the_fallback(self):
+        self.page.evaluate("window.WEAZEL_WEB_TIMEOUT_MS = 300")
+        self.post(action="open")
+        self.post(action="loadWeb", url="http://127.0.0.1:1/x")
+        self.post(type="weazel-ready")
+        self.page.wait_for_timeout(600)
+        self.assertTrue(self.page.is_visible("#webFrame"))
+        self.assertNotIn("webFailed", [c["event"] for c in self.calls()])
+
     def test_only_http_urls_are_framed_and_a_failed_ticket_shows_the_built_in_panel(self):
         for bad in ("javascript:window.__pwned=1", "data:text/html,x", "file:///etc/passwd"):
             self.post(action="open")

@@ -24,6 +24,11 @@ RegisterNUICallback("unlock", function(_, cb)
     if panelOpen then TriggerServerEvent("weazel:server:ticket") end
     cb({})
 end)
+RegisterNUICallback("webFailed", function(_, cb)
+    print("[weazel] the web newsroom did not load inside the tablet (is the web app running and reachable at WEAZEL_PUBLIC_BASE_URL?). Showing the built-in panel.")
+    TriggerEvent("QBCore:Notify", "The web newsroom could not be loaded. Showing the built-in panel.", "error")
+    cb({})
+end)
 RegisterNetEvent("weazel:client:loadWeb", function(url)
     if panelOpen then SendNUIMessage({ action = "loadWeb", url = url }) end
 end)

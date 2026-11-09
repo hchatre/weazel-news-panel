@@ -46,6 +46,7 @@ RegisterNetEvent('weazel:server:ticket', function()
     if not player then return end
     exports[GetCurrentResourceName()]:issueTicket(function(ok, status, body)
         local url = ok and status == 200 and body and body.url or nil
+        print(('[weazel] tablet sign-in for %s: HTTP %s, frame address %s'):format(tostring(src), tostring(status), url and (url:match('^(https?://[^/]+)') or '?') or 'none (built-in panel)'))   -- never prints the ticket
         TriggerClientEvent('weazel:client:loadWeb', src, url)
     end, player.PlayerData.citizenid)
 end)

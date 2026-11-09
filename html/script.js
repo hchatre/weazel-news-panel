@@ -115,8 +115,9 @@ function renderLockNews(entries) {
 
 // Unlocking loads the web newsroom inside the tablet (like the DOJ tablet). The client asks the server for a one-time ticket;
 // if that fails the older built-in panel is shown instead, so the tablet is never a dead end.
-let webLoaded = false, unlocking = false;
-function showLegacy() { document.getElementById("webFrame").hidden = true; document.getElementById("app").style.display = "block"; document.getElementById("tablet").classList.remove("locked"); }
+let webLoaded = false, unlocking = false, webTimer = null;
+function clearWebTimer() { if (webTimer) { clearTimeout(webTimer); webTimer = null; } }
+function showLegacy() { clearWebTimer(); document.getElementById("webFrame").hidden = true; document.getElementById("app").style.display = "block"; document.getElementById("tablet").classList.remove("locked"); }
 function unlockTablet() {
     if (webLoaded) { document.getElementById("tablet").classList.remove("locked"); return; }
     if (unlocking) return;
@@ -137,6 +138,15 @@ function loadWeb(url) {
     frame.src = url;
     webLoaded = true;
     document.getElementById("tablet").classList.remove("locked");
+    // The web page tells us it started ("weazel-ready"). If it never does (blocked frame, server down), do not leave a blank screen:
+    // show the built-in panel and say so.
+    clearWebTimer();
+    webTimer = setTimeout(() => {
+        webTimer = null; webLoaded = false;
+        frame.hidden = true; frame.src = "about:blank";
+        showLegacy();
+        fetchNUI("webFailed", {});
+    }, Number(window.WEAZEL_WEB_TIMEOUT_MS) || 10000);
 }
 
 window.addEventListener("message", (event) => {
@@ -154,9 +164,10 @@ window.addEventListener("message", (event) => {
     }
     if (data.action === "clock") setLockClock(data.clock);
     if (data.action === "loadWeb") loadWeb(data.url);
+    if (data.type === "weazel-ready") clearWebTimer();
     if (data.type === "weazel-tablet-close") fetchNUI("close", {});   // Escape pressed inside the web panel
     if (data.action === "close") {
-        webLoaded = false; unlocking = false;
+        webLoaded = false; unlocking = false; clearWebTimer();
         const f = document.getElementById("webFrame"); f.hidden = true; f.src = "about:blank";
         document.getElementById("tablet").hidden = true;
         document.getElementById("app").style.display = "none";
