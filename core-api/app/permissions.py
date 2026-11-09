@@ -40,6 +40,7 @@ PERMISSIONS: dict[str, str] = {
     "ai.use": "Use the AI workspace (suggestions only; a person always decides)",
 }
 
+_FREELANCER = {"article.create", "article.edit.own", "article.submit"}
 _INTERN = {"article.create", "article.edit.own", "article.submit", "investigation.read", "investigation.contribute", "source.read"}
 _JOURNALIST = _INTERN | {"article.read", "investigation.create", "investigation.verify", "evidence.upload", "evidence.read", "source.manage", "ai.use"}
 _SENIOR = _JOURNALIST | {"article.edit.assigned", "investigation.edit", "evidence.download", "article.notes.read"}
@@ -59,6 +60,7 @@ _ADMIN = set(PERMISSIONS)
 
 # key, name, rank, permissions
 DEFAULT_ROLES: list[tuple[str, str, int, set[str]]] = [
+    ("freelancer", "Freelancer", 5, _FREELANCER),
     ("intern", "Intern", 10, _INTERN),
     ("journalist", "Journalist", 20, _JOURNALIST),
     ("senior_journalist", "Senior Journalist", 30, _SENIOR),
@@ -68,8 +70,12 @@ DEFAULT_ROLES: list[tuple[str, str, int, set[str]]] = [
     ("system_admin", "System Administrator", 100, _ADMIN),
 ]
 
-# Legacy panel grades (job "reporter"): 0 Intern, 1 Journalist, 2 Editor, 3 CEO
-DEFAULT_JOB_MAPPINGS = [("reporter", 0, "intern"), ("reporter", 1, "journalist"), ("reporter", 2, "editor"), ("reporter", 3, "editor_in_chief")]
+# Job "reporter" grades, lowest to highest: 0 journalist, 1 reporter, 2 director, 3 chief, 4 administrator.
+# These are defaults only: the Job mapping admin page is the place to change them to match your QBCore job.
+DEFAULT_JOB_MAPPINGS = [("reporter", 0, "journalist"), ("reporter", 1, "senior_journalist"), ("reporter", 2, "editor"),
+                        ("reporter", 3, "editor_in_chief"), ("reporter", 4, "system_admin")]
+# The defaults before this change (legacy panel grades). Replaced only if they are still exactly this, i.e. nobody edited them.
+OLD_DEFAULT_JOB_MAPPINGS = [("reporter", 0, "intern"), ("reporter", 1, "journalist"), ("reporter", 2, "editor"), ("reporter", 3, "editor_in_chief")]
 
 # from, to, permission, independent, requires_note
 DEFAULT_TRANSITIONS = [

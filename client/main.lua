@@ -1,4 +1,6 @@
-local QBCore = exports['qb-core']:GetCoreObject()
+-- Weazel tablet, client side. This resource shows the web newsroom inside the game: /weazel or the phone app opens a tablet
+-- (lock screen), tapping it loads the web app signed in as the character being played. Nothing about who you are comes from here:
+-- the server reads the character from QBCore and the API decides what that character may do.
 local panelOpen = false
 
 -- In-game time for the lock screen (month is 0-based in the game, like in JS).
@@ -6,266 +8,54 @@ local function gameClock()
     return { h = GetClockHours(), m = GetClockMinutes(), dow = GetClockDayOfWeek(), d = GetClockDayOfMonth(), mo = GetClockMonth() }
 end
 
--- The server decides whether this player may open the panel (job / public access); the client only reacts.
-RegisterCommand('weazel', function()
-    if panelOpen then return end
-    TriggerServerEvent("weazel:server:openPanel")
-end)
-
--- Phone (or anything else) asks to open the tablet: same path as /weazel, the server still decides who may open it.
-AddEventHandler("weazel:client:requestOpen", function()
-    if panelOpen or IsEntityDead(PlayerPedId()) then return end
-    TriggerServerEvent("weazel:server:openPanel")
-end)
-exports("OpenFromPhone", function() TriggerEvent("weazel:client:requestOpen") end)
-
--- Tapping the lock screen: the client only asks. The server identifies the character itself and mints a one-time ticket.
-RegisterNUICallback("unlock", function(_, cb)
-    if panelOpen then TriggerServerEvent("weazel:server:ticket") end
-    cb({})
-end)
-RegisterNetEvent("weazel:client:loadWeb", function(url)
-    if panelOpen then SendNUIMessage({ action = "loadWeb", url = url }) end
-end)
-
-local function ClosePanel()
+local function closePanel()
     if not panelOpen then return end
     panelOpen = false
     SetNuiFocus(false, false)
     SetPlayerControl(PlayerId(), true, 0)
-    SendNUIMessage({ action = "close" })
+    SendNUIMessage({ action = 'close' })
 end
 
-RegisterNetEvent("weazel:client:open", function()
-    if panelOpen then return end
+local function openPanel()
+    if panelOpen or IsEntityDead(PlayerPedId()) then return end
     panelOpen = true
     SetNuiFocus(true, true)
     SetPlayerControl(PlayerId(), false, 0)
-    SendNUIMessage({ action = "open", clock = gameClock() })
-    -- Keeps the lock-screen clock moving while the tablet is open.
-    CreateThread(function()
+    SendNUIMessage({ action = 'open', clock = gameClock() })
+    CreateThread(function()   -- keeps the lock-screen clock moving
         while panelOpen do
             Wait(2000)
-            if panelOpen then SendNUIMessage({ action = "clock", clock = gameClock() }) end
+            if panelOpen then SendNUIMessage({ action = 'clock', clock = gameClock() }) end
         end
     end)
-    -- Escape handling only runs while the panel is open.
-    CreateThread(function()
+    CreateThread(function()   -- Escape closes it (inside the web page the page itself reports Escape)
         while panelOpen do
             Wait(0)
-            if IsControlJustPressed(0, 322) then ClosePanel() end
+            if IsControlJustPressed(0, 322) then closePanel() end
         end
     end)
-end)
+end
 
-AddEventHandler("onResourceStop", function(resource)
+RegisterCommand('weazel', openPanel, false)
+AddEventHandler('weazel:client:requestOpen', openPanel)          -- the phone app (client/lbphone.lua)
+exports('OpenFromPhone', function() TriggerEvent('weazel:client:requestOpen') end)
+
+-- Tapping the lock screen: the client only asks. The server identifies the character itself and mints a one-time sign-in link.
+RegisterNUICallback('unlock', function(_, cb)
+    if panelOpen then TriggerServerEvent('weazel:server:ticket') end
+    cb({})
+end)
+RegisterNetEvent('weazel:client:loadWeb', function(url, reason)
+    if panelOpen then SendNUIMessage({ action = 'loadWeb', url = url, reason = reason }) end
+end)
+RegisterNUICallback('webFailed', function(_, cb)
+    print('[weazel] the web newsroom did not load inside the tablet (is the web app running and reachable at WEAZEL_PUBLIC_BASE_URL?)')
+    cb({})
+end)
+RegisterNUICallback('close', function(_, cb) closePanel(); cb({}) end)
+
+AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     SetNuiFocus(false, false)
     SetPlayerControl(PlayerId(), true, 0)
-end)
-
-RegisterNUICallback("close", function(_, cb)
-    ClosePanel()
-    cb({})
-end)
-
--- Réception des données du serveur
-RegisterNetEvent("weazel:client:setRole", function(data)
-    SendNUIMessage({
-        action = "setRole",
-        role = data.role,
-        grade = data.grade,
-        name = data.name
-    })
-end)
-
-RegisterNetEvent("weazel:client:setLatestNews", function(entries)
-    if not entries then entries = {} end
-    SendNUIMessage({ action = "setLatestNews", entries = entries })
-end)
-
-RegisterNetEvent("weazel:client:setDrafts", function(drafts)
-    if not drafts then drafts = {} end
-    SendNUIMessage({ action = "setDrafts", drafts = drafts })
-end)
-
-RegisterNetEvent("weazel:client:setPending", function(pending)
-    if not pending then pending = {} end
-    SendNUIMessage({ action = "setPending", pending = pending })
-end)
-
-RegisterNetEvent("weazel:client:receiveDossiers", function(dossiers)
-    if not dossiers then dossiers = {} end
-    SendNUIMessage({ action = "setDossiers", dossiers = dossiers })
-end)
-
-RegisterNetEvent("weazel:client:setTimeline", function(entries)
-    if not entries then entries = {} end
-    SendNUIMessage({ action = "setTimeline", entries = entries })
-end)
-
-RegisterNetEvent("weazel:client:setAdmin", function(list)
-    if not list then list = {} end
-    SendNUIMessage({ action = "setAdmin", users = list })
-end)
-
-RegisterNetEvent("weazel:client:showArticle", function(article)
-    SendNUIMessage({ action = "showArticle", article = article })
-end)
-
-RegisterNetEvent("weazel:client:updateLikes", function(data)
-    SendNUIMessage({
-        action = "updateLikes",
-        articleId = data.articleId,
-        count = data.count,
-        liked = data.liked
-    })
-end)
-
-RegisterNetEvent("weazel:client:updateComments", function(data)
-    SendNUIMessage({
-        action = "updateComments",
-        articleId = data.articleId,
-        comments = data.comments
-    })
-end)
-
-RegisterNetEvent("weazel:client:articleNotification", function(notification)
-    SendNUIMessage({
-        action = "articleNotification",
-        notification = notification
-    })
-end)
-
-RegisterNetEvent("weazel:client:articleDeleted", function(articleId)
-    SendNUIMessage({
-        action = "articleDeleted",
-        articleId = articleId
-    })
-end)
-
--- Callbacks NUI
-RegisterNUICallback("saveDraft", function(data, cb)
-    TriggerServerEvent("weazel:server:saveDraft", data)
-    cb({})
-end)
-
-RegisterNUICallback("updateDraft", function(data, cb)
-    TriggerServerEvent("weazel:server:updateDraft", data)
-    cb({})
-end)
-
-RegisterNUICallback("deleteDraft", function(data, cb)
-    TriggerServerEvent("weazel:server:deleteDraft", data.id)
-    cb({})
-end)
-
-RegisterNUICallback("publishDraft", function(data, cb)
-    TriggerServerEvent("weazel:server:publishDraft", data)
-    cb({})
-end)
-
-RegisterNUICallback("publishArticle", function(data, cb)
-    TriggerServerEvent("weazel:server:publishArticle", data)
-    cb({})
-end)
-
-RegisterNUICallback("getArticle", function(data, cb)
-    TriggerServerEvent("weazel:server:getArticle", data.id)
-    cb({})
-end)
-
-RegisterNUICallback("getDraft", function(data, cb)
-    TriggerServerEvent("weazel:server:getArticle", data.id)
-    cb({})
-end)
-
-RegisterNUICallback("approvePending", function(data, cb)
-    TriggerServerEvent("weazel:server:approvePending", data.id)
-    cb({})
-end)
-
-RegisterNUICallback("deletePending", function(data, cb)
-    TriggerServerEvent("weazel:server:deletePending", data.id)
-    cb({})
-end)
-
-RegisterNUICallback("createDossier", function(data, cb)
-    TriggerServerEvent("weazel:server:createDossier", data.title)
-    cb({})
-end)
-
-RegisterNUICallback("renameDossier", function(data, cb)
-    TriggerServerEvent("weazel:server:renameDossier", data)
-    cb({})
-end)
-
-RegisterNUICallback("deleteDossier", function(data, cb)
-    TriggerServerEvent("weazel:server:deleteDossier", data.id)
-    cb({})
-end)
-
-RegisterNUICallback("openTimeline", function(data, cb)
-    TriggerServerEvent("weazel:server:getTimeline", data.id)
-    cb({})
-end)
-
-RegisterNUICallback("addEntry", function(data, cb)
-    TriggerServerEvent("weazel:server:addEntry", data)
-    cb({})
-end)
-
-RegisterNUICallback("deleteEntry", function(data, cb)
-    TriggerServerEvent("weazel:server:deleteEntry", data.entryId)
-    cb({})
-end)
-
-RegisterNUICallback("changeEntryType", function(data, cb)
-    TriggerServerEvent("weazel:server:changeEntryType", data)
-    cb({})
-end)
-
-RegisterNUICallback("likeArticle", function(data, cb)
-    TriggerServerEvent("weazel:server:likeArticle", data.articleId)
-    cb({})
-end)
-
-RegisterNUICallback("addComment", function(data, cb)
-    TriggerServerEvent("weazel:server:addComment", {
-        articleId = data.articleId,
-        comment = data.comment
-    })
-    cb({})
-end)
-
-RegisterNUICallback("deleteComment", function(data, cb)
-    TriggerServerEvent("weazel:server:deleteComment", data.commentId)
-    cb({})
-end)
-
-RegisterNUICallback("deleteArticle", function(data, cb)
-    TriggerServerEvent("weazel:server:deleteArticle", data.id)
-    cb({})
-end)
-
--- Upload d'image 
-
-RegisterNUICallback("getJournalists", function(_, cb)
-    TriggerServerEvent("weazel:server:getJournalists")
-    cb({})
-end)
-
-RegisterNUICallback("recruit", function(data, cb)
-    TriggerServerEvent("weazel:server:recruit", data.targetSrc)
-    cb({})
-end)
-
-RegisterNUICallback("setGrade", function(data, cb)
-    TriggerServerEvent("weazel:server:setGrade", data)
-    cb({})
-end)
-
-RegisterNUICallback("fire", function(data, cb)
-    TriggerServerEvent("weazel:server:fire", data.citizenid)
-    cb({})
 end)
