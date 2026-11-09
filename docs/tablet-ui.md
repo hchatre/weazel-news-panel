@@ -5,7 +5,7 @@
 - The clock comes from the game (`GetClock*` natives, refreshed every 2 s while open), so it matches the in-game day and night. In a plain browser it falls back to the computer's clock.
 - Headlines are set as text only (never HTML) and come from the same data the Latest page already loads.
 - The panel behind the lock screen is hidden from sight, clicks and keyboard until unlocked. Animations are switched off for players with reduced motion.
-- Only `html/` (index.html, style.css, script.js) and `client/main.lua` changed. No new permissions, no new server events.
+- Only `fivem/html/` (index.html, style.css, script.js) and `fivem/client/main.lua` changed. No new permissions, no new server events.
 
 **Tested:** 14 browser-driven NUI tests (5 new: lock first, keyboard unlock and re-lock, text-only headlines, clock updates and reopening locked, Esc on the lock screen) and the existing 58 Lua tests. **Not tested:** on a real FiveM client (CEF), including the in-game clock natives and how the blur and animations perform there.
 

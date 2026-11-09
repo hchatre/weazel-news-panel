@@ -11,7 +11,7 @@ def login(page, email, pw=PW):
     page.goto(f"{BASE}/login")
     page.fill("#email", email); page.fill("#pw", pw); page.click("form button")
 
-BRIDGE_JS = os.path.join(os.path.dirname(__file__), "..", "..", "server", "bridge.js")
+BRIDGE_JS = os.path.join(os.path.dirname(__file__), "..", "..", "fivem", "server", "bridge.js")
 API = os.environ.get("API", "http://127.0.0.1:8000")
 BRIDGE_SECRET = os.environ["WEAZEL_BRIDGE_SECRET"]  # same value the API was started with
 

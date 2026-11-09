@@ -16,7 +16,7 @@ from app import models as m
 from app.services.bridge import sign as py_sign
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-BRIDGE_JS = os.path.join(ROOT, "server", "bridge.js")
+BRIDGE_JS = os.path.join(ROOT, "fivem", "server", "bridge.js")
 SECRET = "n" * 40
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 

@@ -3,7 +3,7 @@
 Modeled on the DOJ tablet: **pull, not push**. Nothing is posted to Discord and the API never connects to your game server.
 
 ## How it works
-1. Every `weazel_news_poll_seconds` (default 20, minimum 5) the game server (`server/bridge.lua`) sends the API a signed request (`POST /api/v1/bridge/news/poll`, same HMAC bridge secret as staff sync) with the citizen ids of the players who are online (taken from QBCore, never from a client) and a cursor.
+1. Every `weazel_news_poll_seconds` (default 20, minimum 5) the game server (`fivem/server/bridge.lua`) sends the API a signed request (`POST /api/v1/bridge/news/poll`, same HMAC bridge secret as staff sync) with the citizen ids of the players who are online (taken from QBCore, never from a client) and a cursor.
 2. The API answers with:
    - `broadcast`: articles published since the cursor (status published/corrected only, same rule as the public API). Title and id only.
    - `personal`: notifications created since the cursor for online staff (assigned, approved, awaiting review...). Title only.

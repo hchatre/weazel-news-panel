@@ -6,7 +6,7 @@ from playwright.sync_api import sync_playwright, expect
 
 BASE = os.environ.get("WEB", "http://127.0.0.1:3000")
 API = os.environ.get("API", "http://127.0.0.1:8000")
-BRIDGE_JS = os.path.join(os.path.dirname(__file__), "..", "..", "server", "bridge.js")
+BRIDGE_JS = os.path.join(os.path.dirname(__file__), "..", "..", "fivem", "server", "bridge.js")
 SECRET = os.environ["WEAZEL_BRIDGE_SECRET"]
 RUN = uuid.uuid4().hex[:6].upper()
 

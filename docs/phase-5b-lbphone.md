@@ -1,8 +1,8 @@
 # LB Phone app (superseded)
 
-This file described an in-phone news reader (`server/lbphone.lua`, `html/lbphone/`). It was **removed**. The Weazel News icon on the LB Phone now does one thing: it closes the phone and opens the Weazel tablet, which shows the web newsroom (see `docs/tablet-ui.md`).
+This file described an in-phone news reader (`server/lbphone.lua`, `fivem/html/lbphone/`). It was **removed**. The Weazel News icon on the LB Phone now does one thing: it closes the phone and opens the Weazel tablet, which shows the web newsroom (see `docs/tablet-ui.md`).
 
-What the code does (`client/lbphone.lua`): registers the app with `exports['lb-phone']:AddCustomApp({ identifier = 'weazel_news', name, description, developer, defaultApp = true, keepOpen = true, size = 1024, onUse, icon })`, with no `ui` page. Field names follow LB Phone's Custom Apps documentation (https://docs.lbscripts.com/phone/custom-apps). The call is wrapped in `pcall`; failure is printed (`[weazel] LB Phone app NOT registered: ...`) instead of crashing.
+What the code does (`fivem/client/lbphone.lua`): registers the app with `exports['lb-phone']:AddCustomApp({ identifier = 'weazel_news', name, description, developer, defaultApp = true, keepOpen = true, size = 1024, onUse, icon })`, with no `ui` page. Field names follow LB Phone's Custom Apps documentation (https://docs.lbscripts.com/phone/custom-apps). The call is wrapped in `pcall`; failure is printed (`[weazel] LB Phone app NOT registered: ...`) instead of crashing.
 
 ## Checklist in a real server (not verified by me)
 

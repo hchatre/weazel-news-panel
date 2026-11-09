@@ -24,3 +24,5 @@ Install the GitHub App or push the bundle. Delete the 3 old Discord webhooks (st
 - The API applies its defaults at every start, so the new role and job table appear on upgrade without a manual step.
 - Tested: 142 API tests, 25 Lua, 11 tablet-page tests, browser run as seven different characters (unemployed, taxi driver, reporter grades 0-4).
 - Not tested: a real FiveM client, real LB Phone 2.8.1.
+
+Repository layout: `core-api/`, `web/`, `fivem/` (the in-game resource and its tests), `docs/`. Older phase notes keep the paths they had when written.
