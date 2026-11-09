@@ -25,7 +25,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   const desk = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/articles", label: t("articles"), icon: FileText },
-    { href: "/investigations", label: t("investigations"), icon: FolderSearch },
+    ...(can("investigation.read") ? [{ href: "/investigations", label: t("investigations"), icon: FolderSearch }] : []),
   ];
   const admin = [
     ...(can("staff.view") ? [{ href: "/admin/staff", label: t("staff"), icon: Users }] : []),

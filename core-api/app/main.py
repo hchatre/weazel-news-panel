@@ -21,6 +21,20 @@ async def security_headers(request, call_next):
     return response
 
 
+@app.on_event("startup")
+def seed_on_start():
+    """Idempotent defaults (roles, job table, workflow) are applied at every start, so an upgrade that adds a role or permission
+    (the freelancer role, say) takes effect without a manual step. Existing rows are never overwritten."""
+    if settings.ENVIRONMENT == "test":
+        return
+    try:
+        from app.seed import seed_defaults
+        with SessionLocal() as db:
+            seed_defaults(db)
+    except Exception as exc:   # the API must still start (and /health report) if the database is down
+        print(f"[weazel] defaults not applied at startup: {type(exc).__name__}")
+
+
 @app.get("/health", tags=["health"])
 def health():
     try:
