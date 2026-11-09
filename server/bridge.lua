@@ -33,7 +33,24 @@ RegisterCommand('newsroom', function(src)
     end, player.PlayerData.citizenid)
 end, false)
 
-AddEventHandler('playerDropped', function() lastAsk[source] = nil end)
+-- The tablet's lock screen asks for a ticket when the player taps it. Identity comes from the server (source -> character);
+-- the answer is a single-use link for THIS player only, loaded inside the tablet. nil means "use the built-in panel".
+local lastTicket = {}
+RegisterNetEvent('weazel:server:ticket', function()
+    local src = source
+    local now = GetGameTimer()
+    if lastTicket[src] and now - lastTicket[src] < 3000 then return end
+    lastTicket[src] = now
+    if not configured() then return TriggerClientEvent('weazel:client:loadWeb', src, nil) end
+    local player = QBCore.Functions.GetPlayer(src)
+    if not player then return end
+    exports[GetCurrentResourceName()]:issueTicket(function(ok, status, body)
+        local url = ok and status == 200 and body and body.url or nil
+        TriggerClientEvent('weazel:client:loadWeb', src, url)
+    end, player.PlayerData.citizenid)
+end)
+
+AddEventHandler('playerDropped', function() lastAsk[source] = nil; lastTicket[source] = nil end)
 
 local function toPlayer(citizenid, charinfo, job)
     local info = type(charinfo) == 'string' and json.decode(charinfo) or charinfo or {}

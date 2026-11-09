@@ -43,8 +43,8 @@ export default function Shell({ children }: { children: ReactNode }) {
     const active = path === href || path.startsWith(href + "/");
     return (
       <Link key={href} href={href} aria-current={active ? "page" : undefined} title={label}
-        className={`group relative flex items-center gap-3 px-3 py-2.5 text-[0.95rem] font-medium transition-colors ${active ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"}`}>
-        {active && <span className="absolute inset-y-1 left-0 w-1 bg-brand" aria-hidden />}
+        className={`group relative mx-2 my-0.5 flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.9rem] font-semibold transition-colors ${active ? "bg-white/12 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"}`}>
+        {active && <span className="absolute inset-y-2 -left-2 w-1 rounded-full bg-brand" aria-hidden />}
         <Icon size={18} className="shrink-0" /><span className="hidden md:inline">{label}</span>
       </Link>
     );
@@ -53,9 +53,9 @@ export default function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-panel focus:p-2">{t("skip")}</a>
-      <header className="flex h-14 items-center gap-3 bg-set px-3 text-white sm:px-4">
+      <header className="flex h-14 items-center gap-3 border-b border-white/10 bg-set/80 px-3 text-white backdrop-blur-md sm:px-4">
         <Link href="/dashboard" className="flex items-center gap-3" aria-label={t("appName")}>
-          <span className="chyron chyron-brand !px-4 !py-1 text-[1.35rem] !font-extrabold !tracking-[0.08em]">Weazel</span>
+          <span className="chyron chyron-brand !px-4 !py-1 text-[1.05rem] !font-extrabold !tracking-[0.1em]">Weazel</span>
           <span className="hidden font-display text-xl font-semibold tracking-wide text-white/80 sm:inline">{t("newsroom")}</span>
         </Link>
         <Link href="/search" className="btn ml-auto !bg-white/10 !text-white hover:!bg-white/20 sm:hidden" aria-label={t("search")}><Search size={16} /></Link>
@@ -70,7 +70,7 @@ export default function Shell({ children }: { children: ReactNode }) {
       </header>
       <Ticker />
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-14 shrink-0 flex-col bg-set md:w-56">
+        <aside className="flex w-14 shrink-0 flex-col border-r border-white/10 bg-set/70 backdrop-blur-md md:w-56">
           <nav className="flex-1 py-2" aria-label="Main">
             {desk.map(link)}
             {admin.length > 0 && <div className="mx-3 mb-1 mt-4 border-t border-white/15 pt-2 text-sm font-semibold text-white/50"><span className="hidden md:inline">{t("administration")}</span></div>}

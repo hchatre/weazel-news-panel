@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src https: http: data:; font-src 'self' data: https://fonts.gstatic.com; connect-src https:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src https: http: data:; font-src 'self' data: https://fonts.gstatic.com; connect-src https:; frame-src https: http:;">
     <title>Weazel News</title>
     <link rel="stylesheet" href="style.css">
     <script src="script.js" defer></script>
@@ -20,6 +20,7 @@
         <div id="lockNews" class="lock-news" aria-live="polite"></div>
         <div class="lock-hint"><span class="lock-chevron" aria-hidden="true"></span><span>Click to open</span></div>
       </div>
+      <iframe id="webFrame" class="web-frame" title="Weazel Newsroom" hidden allow="clipboard-read; clipboard-write"></iframe>
       <button id="homeBar" class="home-bar" aria-label="Lock the tablet"></button>
 <div id="app" style="display:none">
     <!-- HEADER -->

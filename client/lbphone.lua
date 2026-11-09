@@ -1,9 +1,17 @@
--- LB Phone app, client side. Registers a custom app whose page lives inside the phone (html/lbphone/index.html).
--- !! UNVERIFIED: the exact AddCustomApp call below follows LB Phone's published "Custom Apps" documentation, but it has not been
--- !! run against LB Phone 2.8.1 (or any LB Phone). The call is wrapped in pcall and reports to the console instead of crashing.
+-- LB Phone app, client side. Like the DOJ tablet: the icon does not open a page inside the phone. It closes the phone and opens
+-- the Weazel tablet (lock screen, then the web newsroom). Field names follow LB Phone's Custom Apps docs (onUse, keepOpen, ui optional).
+-- !! UNVERIFIED against LB Phone 2.8.1: the AddCustomApp call is wrapped in pcall and reports to the console instead of crashing.
 local APP_ID = 'weazel_news'
 local registered = false
 local pending, nextId = {}, 0
+
+local function openFromPhone()
+    CreateThread(function()
+        pcall(function() exports['lb-phone']:ToggleOpen(false, true) end)   -- close the phone so it and the tablet never fight over focus
+        Wait(300)
+        TriggerEvent('weazel:client:requestOpen')
+    end)
+end
 
 local function register()
     if registered or GetResourceState('lb-phone') ~= 'started' then return end
@@ -15,7 +23,9 @@ local function register()
             description = 'Read the latest published stories from Weazel News.',
             developer = 'Weazel News',
             defaultApp = true,                                   -- listed without a download step
-            ui = res .. '/html/lbphone/index.html',
+            keepOpen = true,                                     -- we close the phone ourselves
+            size = 1024,
+            onUse = openFromPhone,
             icon = 'https://cfx-nui-' .. res .. '/html/logo.png',
         })
     end)

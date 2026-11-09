@@ -113,8 +113,31 @@ function renderLockNews(entries) {
     });
 }
 
-function unlockTablet() { document.getElementById("tablet").classList.remove("locked"); }
+// Unlocking loads the web newsroom inside the tablet (like the DOJ tablet). The client asks the server for a one-time ticket;
+// if that fails the older built-in panel is shown instead, so the tablet is never a dead end.
+let webLoaded = false, unlocking = false;
+function showLegacy() { document.getElementById("webFrame").hidden = true; document.getElementById("app").style.display = "block"; document.getElementById("tablet").classList.remove("locked"); }
+function unlockTablet() {
+    if (webLoaded) { document.getElementById("tablet").classList.remove("locked"); return; }
+    if (unlocking) return;
+    unlocking = true;
+    const hint = document.querySelector(".lock-hint span:last-child");
+    if (hint) hint.textContent = "Opening\u2026";
+    fetchNUI("unlock", {});
+}
 function lockTablet() { document.getElementById("tablet").classList.add("locked"); document.getElementById("lock").focus(); }
+function loadWeb(url) {
+    unlocking = false;
+    const hint = document.querySelector(".lock-hint span:last-child");
+    if (hint) hint.textContent = "Click to open";
+    if (typeof url !== "string" || !/^https?:\/\//.test(url)) { showLegacy(); return; }
+    const frame = document.getElementById("webFrame");
+    document.getElementById("app").style.display = "none";
+    frame.hidden = false;
+    frame.src = url;
+    webLoaded = true;
+    document.getElementById("tablet").classList.remove("locked");
+}
 
 window.addEventListener("message", (event) => {
     const data = event.data;
@@ -130,7 +153,11 @@ window.addEventListener("message", (event) => {
         document.getElementById("lock").focus();
     }
     if (data.action === "clock") setLockClock(data.clock);
+    if (data.action === "loadWeb") loadWeb(data.url);
+    if (data.type === "weazel-tablet-close") fetchNUI("close", {});   // Escape pressed inside the web panel
     if (data.action === "close") {
+        webLoaded = false; unlocking = false;
+        const f = document.getElementById("webFrame"); f.hidden = true; f.src = "about:blank";
         document.getElementById("tablet").hidden = true;
         document.getElementById("app").style.display = "none";
         document.getElementById("lockNews").textContent = "";
