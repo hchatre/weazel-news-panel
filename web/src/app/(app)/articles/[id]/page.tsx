@@ -20,7 +20,7 @@ export default function ArticlePage() {
   const [diff, setDiff] = useState<any>(null);
   const dirty = useRef(false);
 
-  useEffect(() => { if (a) { setForm({ title: a.title, subtitle: a.subtitle, summary: a.summary, body: a.body, internal_notes: a.internal_notes ?? "" }); dirty.current = false; } }, [a]);
+  useEffect(() => { if (a) { setForm({ title: a.title, subtitle: a.subtitle, summary: a.summary, body: a.body, cover_image_url: a.cover_image_url ?? "", cover_caption: a.cover_caption ?? "", cover_credit: a.cover_credit ?? "", internal_notes: a.internal_notes ?? "" }); dirty.current = false; } }, [a]);
 
   // Autosave a draft copy every 20s while there are unsaved edits. It never overwrites the article itself.
   useEffect(() => {
@@ -57,6 +57,17 @@ export default function ArticlePage() {
             <section className="card space-y-3 p-4 lg:col-span-2" aria-label={t("articles")}>
               <Field id="t" label={t("title")}><input id="t" className="input" disabled={!a.can_edit} value={form.title} onChange={(e) => set("title", e.target.value)} /></Field>
               <Field id="s" label={t("summary")}><textarea id="s" rows={2} className="input" disabled={!a.can_edit} value={form.summary} onChange={(e) => set("summary", e.target.value)} /></Field>
+              {(a.can_edit || a.cover_image_url) && (
+                <div className="space-y-2">
+                  {a.can_edit && <Field id="ci" label="Photo (image address, https://…)"><input id="ci" type="url" maxLength={500} className="input" placeholder="https://i.imgur.com/…" value={form.cover_image_url} onChange={(e) => set("cover_image_url", e.target.value)} /></Field>}
+                  {form.cover_image_url && /^https?:\/\//.test(form.cover_image_url) && <img src={form.cover_image_url} alt={form.cover_caption || ""} className="max-h-72 w-full rounded-lg object-cover" referrerPolicy="no-referrer" />}
+                  {a.can_edit && <div className="grid gap-2 sm:grid-cols-2">
+                    <Field id="cc" label="Photo caption"><input id="cc" maxLength={300} className="input" value={form.cover_caption} onChange={(e) => set("cover_caption", e.target.value)} /></Field>
+                    <Field id="cr" label="Photo credit"><input id="cr" maxLength={200} className="input" value={form.cover_credit} onChange={(e) => set("cover_credit", e.target.value)} /></Field>
+                  </div>}
+                  {!a.can_edit && (a.cover_caption || a.cover_credit) && <p className="text-xs text-muted">{a.cover_caption} {a.cover_credit && `· ${a.cover_credit}`}</p>}
+                </div>
+              )}
               <Field id="b" label={t("body")}><textarea id="b" rows={14} className="input font-serif" disabled={!a.can_edit} value={form.body} onChange={(e) => set("body", e.target.value)} /></Field>
               {a.internal_notes !== undefined && <Field id="n" label={t("internalNotes")}><textarea id="n" rows={3} className="input" disabled={!a.can_edit} value={form.internal_notes} onChange={(e) => set("internal_notes", e.target.value)} /></Field>}
               <div className="flex items-center gap-3">

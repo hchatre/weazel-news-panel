@@ -137,7 +137,12 @@ def staff(ctx: Ctx = Depends(require("staff.view"))):
     db = ctx.db
     vis = visible_investigation_filter(ctx)
     out = []
+    # The newsroom is the people whose job is mapped to a role (reporter). Players with any other job (freelancers, other
+    # departments) are not staff; accounts that never came from the game (no job on record) stay listed.
+    staff_jobs = set(db.scalars(select(m.JobGradeMapping.job_name)))
     for u in db.scalars(select(m.User).where(m.User.role_id.is_not(None)).order_by(m.User.display_name)):
+        if u.employment_job is not None and u.employment_job not in staff_jobs:
+            continue
         row = _user_row(u)
         row.pop("email", None)
         row["open_articles"] = db.scalar(select(func.count()).select_from(m.Article).where(

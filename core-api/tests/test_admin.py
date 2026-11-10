@@ -161,3 +161,14 @@ def test_assignable_roles_lists_only_roles_below_the_caller_and_needs_a_staff_pe
     keys = {r["key"] for r in eic.json()}
     assert "editor" in keys and "intern" in keys and "editor_in_chief" not in keys and "system_admin" not in keys
     assert client.get(f"{API}/staff/assignable-roles", headers=w.h(w.jo)).status_code == 403   # a journalist has no staff permission
+
+
+def test_staff_list_shows_only_the_reporter_job_and_hand_made_accounts(client, w, db):
+    from tests.conftest import make_user
+    make_user(db, "Real Reporter", "journalist", employment_job="reporter", employment_grade=1)
+    make_user(db, "Doj Member", "freelancer", employment_job="doj", employment_grade=2)
+    make_user(db, "Unemployed Person", "freelancer", employment_job="unemployed", employment_grade=0)
+    names = {u["display_name"] for u in client.get(f"{API}/staff", headers=w.h(w.eic)).json()}
+    assert "Real Reporter" in names
+    assert "Doj Member" not in names and "Unemployed Person" not in names
+    assert w.eic.display_name in names   # a hand-made account has no game job and stays listed

@@ -108,7 +108,7 @@ with sync_playwright() as p:
     page.get_by_role("link", name="Roles").click(); page.get_by_role("button", name="Journalist 20").click()
     expect(page.get_by_text("Permissions of this role")).to_be_visible(); page.get_by_role("button", name="Save", exact=True).click(); expect(page.get_by_text("Role saved.")).to_be_visible()
     page.get_by_role("link", name="Job grades").click(); expect(page.get_by_role("cell", name="reporter").first).to_be_visible()
-    page.get_by_role("button", name="Save", exact=True).click(); expect(page.get_by_text("Job grade saved.")).to_be_visible()
+    page.select_option("#r", "journalist"); page.get_by_role("button", name="Save", exact=True).click(); expect(page.get_by_text("Job grade saved.")).to_be_visible()
     page.get_by_role("link", name="Workflow").click(); page.get_by_role("button", name="Save step").first.click(); expect(page.get_by_text("Step saved.")).to_be_visible()
     page.get_by_role("link", name="Audit log").click(); expect(page.get_by_role("cell", name="staff.recruit").first).to_be_visible()
     with page.expect_download() as dl: page.get_by_role("button", name="Export CSV").click()

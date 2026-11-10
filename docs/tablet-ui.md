@@ -31,3 +31,8 @@ Tested: the tablet page in Chrome, client and server Lua with stubs, the API's a
 - **Role changes while open.** A job change in game (`QBCore:Server:OnJobUpdate`) syncs the account and reloads the page in place. A role changed inside the web app is noticed by the page's 10-second check of `/auth/me`; on a 401 it asks the tablet to sign in again (at most once per 3 s).
 - **Freelancers are read-only.** Anyone who is not Weazel News (unemployed or any other job) is a Freelancer with no permissions: published content is readable, and there are no forms or create/edit buttons. The header search box stays (it only navigates).
 - **LB Phone icon.** The app is added in lb-phone's own `config.lua` (see `phase-5b-lbphone.md`), not registered by this resource. Untested with a real LB Phone.
+
+## Staff list and photos
+
+- The staff page lists only people whose game job is mapped to a role (the `reporter` job) plus accounts made by hand. Freelancers and other departments never appear.
+- An article can carry a photo: paste an image address (https) in the article editor, with an optional caption and credit. The photo is shown on the article for everyone who can read it. Uploading image files from the PC is not implemented.

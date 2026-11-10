@@ -53,6 +53,15 @@ with sync_playwright() as p:
         else:
             page.goto(f"{BASE}/articles/new"); page.fill("#title", f"{name} story {RUN}"); page.fill("#body", "Body")
             page.click("button:has-text('Save')"); expect(page.get_by_role("heading", name=f"{name} story {RUN}")).to_be_visible()
+            # a photo can be added to the story and is shown
+            page.fill("#ci", f"{BASE}/icon.png"); page.fill("#cc", "A caption")
+            page.get_by_role("button", name="Save", exact=True).click(); expect(page.get_by_text("Saved")).to_be_visible()
+            page.reload(); expect(page.locator("main img[alt='A caption']")).to_be_visible()
+        if staff:   # the staff page lists the newsroom only: not the freelancers, not other departments
+            page.goto(f"{BASE}/admin/staff"); page.wait_for_timeout(1500)
+            body = page.locator("main").inner_text()
+            assert "Free Lance" not in body and "Taxi Driver" not in body, (name, "non-reporters on the staff page")
+            assert "Jay Journalist" in body, (name, "reporter missing from the staff page")
         # what the role is, from the API's point of view
         me = page.evaluate("async () => { const t = localStorage.getItem('weazel_token') || sessionStorage.getItem('weazel_token'); return t }")
         if not inv:   # direct URL: the page must refuse politely, not crash or show data
