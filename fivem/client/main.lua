@@ -37,8 +37,15 @@ local function openPanel()
 end
 
 RegisterCommand('weazel', openPanel, false)
-AddEventHandler('weazel:client:requestOpen', openPanel)          -- the phone app (client/lbphone.lua)
-exports('OpenFromPhone', function() TriggerEvent('weazel:client:requestOpen') end)
+-- Called by the phone app (lb-phone's own config, see docs/phase-5b-lbphone.md): close the phone, then open the tablet, so they never
+-- fight over the screen.
+exports('OpenFromPhone', function()
+    CreateThread(function()
+        pcall(function() exports['lb-phone']:ToggleOpen(false, true) end)
+        Wait(300)
+        openPanel()
+    end)
+end)
 
 -- Tapping the lock screen: the client only asks. The server identifies the character itself and mints a one-time sign-in link.
 RegisterNUICallback('unlock', function(_, cb)
@@ -51,6 +58,10 @@ end)
 RegisterNUICallback('webFailed', function(_, cb)
     print('[weazel] the web newsroom did not load inside the tablet (is the web app running and reachable at WEAZEL_PUBLIC_BASE_URL?)')
     cb({})
+end)
+-- The server says this character's job changed: if the tablet is open it signs in again, so the role on screen follows the job.
+RegisterNetEvent('weazel:client:refresh', function()
+    if panelOpen then SendNUIMessage({ action = 'refresh' }) end
 end)
 RegisterNUICallback('close', function(_, cb) closePanel(); cb({}) end)
 

@@ -363,3 +363,38 @@ def test_untouched_old_default_mappings_move_to_the_new_grades_but_edited_ones_s
     db.commit()
     seed_defaults(db); db.commit()
     assert {(j.grade_level): db.get(m.Role, j.role_id).key for j in db.scalars(select(m.JobGradeMapping))}[4] == "editor"   # re-seeding never overwrites it
+
+
+# ------------------------------------------------------------------------------------------- freelancers are read-only
+def test_a_freelancer_can_read_published_articles_and_nothing_else(client, db):
+    sync(client, pl("FREE004", job="unemployed", grade=0))
+    free = auth(user(db, "FREE004"))
+    author = make_user(db, "Writer", "journalist")
+    db.add(m.Article(title="Published piece", body="Body", status="published", author_id=author.id, published_at=datetime.now(timezone.utc)))
+    db.add(m.Article(title="Secret draft", body="Body", status="draft", author_id=author.id))
+    db.commit()
+    me = client.get(f"{API}/auth/me", headers=free).json()
+    assert me["role"]["key"] == "freelancer" and me["permissions"] == []
+    assert client.post(f"{API}/articles", headers=free, json={"title": "Sneaky", "body": "x"}).status_code == 403
+    assert client.post(f"{API}/investigations", headers=free, json={"title": "Sneaky"}).status_code == 403
+    assert client.get(f"{API}/articles", headers=free).status_code == 200   # the public content is still there to read
+    assert client.get(f"{API}/investigations", headers=free).status_code in (200, 403)
+    titles = [a["title"] for a in client.get(f"{API}/articles", headers=free).json()["items"]]
+    assert titles == ["Published piece"]   # the draft is not theirs to see
+
+
+def test_the_untouched_earlier_freelancer_permissions_are_removed_but_an_edited_set_is_kept(db):
+    from app.seed import seed_defaults
+    fl = db.scalar(select(m.Role).where(m.Role.key == "freelancer"))
+    for rp in list(fl.permissions):
+        db.delete(rp)
+    db.flush()
+    db.refresh(fl)
+    for p in ("article.create", "article.edit.own", "article.submit"):
+        db.add(m.RolePermission(role_id=fl.id, permission_key=p))
+    db.commit()
+    seed_defaults(db); db.commit(); db.refresh(fl)
+    assert fl.permissions == []                     # was exactly the old default: now read-only
+    db.add(m.RolePermission(role_id=fl.id, permission_key="article.create")); db.commit()
+    seed_defaults(db); db.commit(); db.refresh(fl)
+    assert [rp.permission_key for rp in fl.permissions] == ["article.create"]   # an administrator's choice is never overwritten

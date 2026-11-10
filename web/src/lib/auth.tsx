@@ -16,6 +16,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api<Me>("/auth/me").then(setMe).catch(() => { setToken(null); setMe(null); }).finally(() => setLoading(false));
   }, []);
 
+  // A role can change at any moment (a promotion, a dismissal, a new job in game). Re-read who we are every few seconds so the menus,
+  // buttons and inputs follow; if the session itself was ended because the role changed, api() asks the tablet to sign in again.
+  const signedIn = !!me;
+  useEffect(() => {
+    if (!signedIn) return;
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      api<Me>("/auth/me")
+        .then((n) => setMe((p) => (JSON.stringify(p) === JSON.stringify(n) ? p : n)))
+        .catch((e) => { if (e?.status === 401) { setToken(null); setMe(null); } });
+    }, 10000);
+    return () => clearInterval(id);
+  }, [signedIn]);
+
   const login = useCallback(async (email: string, password: string) => {
     const r = await api<{ access_token: string }>("/auth/login", { method: "POST", body: { email, password } });
     setToken(r.access_token);

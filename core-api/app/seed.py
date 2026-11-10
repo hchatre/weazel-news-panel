@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import models as m
 from app.permissions import (
-    DEFAULT_CATEGORIES, DEFAULT_JOB_MAPPINGS, DEFAULT_LOOKUPS, DEFAULT_ROLES, DEFAULT_TRANSITIONS, OLD_DEFAULT_JOB_MAPPINGS, PERMISSIONS,
+    DEFAULT_CATEGORIES, DEFAULT_JOB_MAPPINGS, DEFAULT_LOOKUPS, DEFAULT_ROLES, DEFAULT_TRANSITIONS, OLD_DEFAULT_JOB_MAPPINGS, OLD_FREELANCER, PERMISSIONS,
 )
 
 
@@ -26,6 +26,12 @@ def seed_defaults(db: Session) -> None:
         db.add(role)
         roles[key] = role
     db.flush()
+
+    fl = roles.get("freelancer")
+    if fl is not None and {rp.permission_key for rp in fl.permissions} == OLD_FREELANCER:
+        for rp in list(fl.permissions):   # still the untouched earlier default (could write): freelancers are read-only now
+            db.delete(rp)
+        db.flush()
 
     # A permission introduced by an upgrade is granted to the default roles that define it, exactly once: at the moment the
     # permission first appears. After that an administrator's choice (removing it from a role) is never overwritten by a re-seed.

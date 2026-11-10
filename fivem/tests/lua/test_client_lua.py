@@ -30,7 +30,9 @@ function GetClockDayOfWeek() return 1 end
 function GetClockDayOfMonth() return 9 end
 function GetClockMonth() return 10 end
 function GetCurrentResourceName() return 'weazel-test' end
-function exports(...) end
+EXPORTS, PHONE = {}, {}
+exports = setmetatable({}, { __call = function(_, name, fn) EXPORTS[name] = fn end,
+  __index = function(_, res) return { ToggleOpen = function(self, open) PHONE[#PHONE + 1] = 'phone:' .. tostring(open) end } end })
 function print(...) py.print(...) end
 function CreateThread(fn) threads[#threads + 1] = fn end   -- threads only run when a test runs them
 function Wait() end
@@ -72,13 +74,23 @@ class ClientTest(unittest.TestCase):
         self.g.CMD["weazel"]()   # already open: nothing happens twice
         self.assertEqual(len(self.sent()), 1)
 
-    def test_nobody_dead_can_open_it_and_the_phone_event_opens_it_the_same_way(self):
-        self.lua.execute("dead = true")
-        self.g.H["weazel:client:requestOpen"]()
-        self.assertEqual(self.sent(), [])
-        self.lua.execute("dead = false")
-        self.g.H["weazel:client:requestOpen"]()
+    def test_the_phone_export_closes_the_phone_first_then_opens_the_tablet_and_a_dead_player_cannot(self):
+        self.g.EXPORTS["OpenFromPhone"]()
+        self.lua.execute("for i = 1, #threads do pcall(threads[i]) end")   # the export runs its work in a thread
+        self.assertEqual(list(self.g.PHONE.values()), ["phone:false"])
         self.assertEqual(self.sent()[0]["action"], "open")
+        self.g.NUI["close"]({}, lambda r: None)
+        self.lua.execute("dead = true; threads = {}")
+        self.g.EXPORTS["OpenFromPhone"]()
+        self.lua.execute("for i = 1, #threads do pcall(threads[i]) end")
+        self.assertEqual(self.sent()[-1]["action"], "close")
+
+    def test_a_job_change_message_reaches_the_page_only_while_the_tablet_is_open(self):
+        self.g.H["weazel:client:refresh"]()
+        self.assertEqual(self.sent(), [])
+        self.g.CMD["weazel"]()
+        self.g.H["weazel:client:refresh"]()
+        self.assertEqual(self.sent()[-1]["action"], "refresh")
 
     def test_unlock_asks_the_server_for_a_ticket_only_while_open_and_sends_no_identity(self):
         self.g.NUI["unlock"]({}, lambda r: None)

@@ -43,10 +43,16 @@ with sync_playwright() as p:
         assert (nav.locator("a[href='/investigations']").count() == 1) == inv, (name, "investigations link")
         assert (nav.locator("a[href='/admin/staff']").count() == 1) == staff, (name, "staff link")
         assert (nav.locator("a[href='/admin/roles']").count() == 1) == adm, (name, "admin link")
-        # every character can open the article list and start a story
         page.goto(f"{BASE}/articles"); expect(page.get_by_role("heading", name="Articles")).to_be_visible()
-        page.goto(f"{BASE}/articles/new"); page.fill("#title", f"{name} story {RUN}"); page.fill("#body", "Body")
-        page.click("button:has-text('Save')"); expect(page.get_by_role("heading", name=f"{name} story {RUN}")).to_be_visible()
+        if role == "Freelancer":
+            # read-only: the content is there, but no button and no form to create or edit anything
+            assert page.get_by_role("link", name="New article").count() == 0, (name, "New article button")
+            page.goto(f"{BASE}/articles/new"); page.wait_for_timeout(800)
+            assert page.locator("main input, main textarea, main select").count() == 0, (name, "input on the new-article page")
+            assert "not have access" in page.locator("main").inner_text(), name
+        else:
+            page.goto(f"{BASE}/articles/new"); page.fill("#title", f"{name} story {RUN}"); page.fill("#body", "Body")
+            page.click("button:has-text('Save')"); expect(page.get_by_role("heading", name=f"{name} story {RUN}")).to_be_visible()
         # what the role is, from the API's point of view
         me = page.evaluate("async () => { const t = localStorage.getItem('weazel_token') || sessionStorage.getItem('weazel_token'); return t }")
         if not inv:   # direct URL: the page must refuse politely, not crash or show data

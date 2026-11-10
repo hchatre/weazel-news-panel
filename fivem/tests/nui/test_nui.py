@@ -156,6 +156,36 @@ class NuiTest(unittest.TestCase):
         self.assertTrue(self.page.is_visible("#webFrame"))
         self.assertNotIn("webFailed", self.events())
 
+    # ------------------------------------------------------------------------------------------ a role can change at any time
+    def test_a_job_change_in_game_signs_in_again_in_place_without_flashing_the_lock_screen(self):
+        self.open_and_unlock()
+        self.assertEqual(self.events(), ["unlock"])
+        self.post(action="refresh")
+        self.assertEqual(self.events(), ["unlock", "unlock"])   # a fresh ticket is requested: the API re-reads the job
+        self.assertTrue(self.page.is_visible("#webFrame"))
+        self.assertTrue(self.page.evaluate("!document.getElementById('tablet').classList.contains('locked')"))
+        self.post(action="loadWeb", url="http://127.0.0.1:1/fivem-login?ticket=NEW")
+        self.assertIn("ticket=NEW", self.page.get_attribute("#webFrame", "src"))
+        self.assertTrue(self.page.evaluate("!document.getElementById('tablet').classList.contains('locked')"))
+
+    def test_the_web_page_reporting_an_ended_session_does_the_same_and_can_never_loop(self):
+        self.open_and_unlock()
+        self.post(type="weazel-relogin")
+        self.post(type="weazel-relogin")
+        self.post(action="refresh")
+        self.assertEqual(self.events(), ["unlock", "unlock"])   # three requests close together: one new ticket
+
+    def test_a_job_change_while_locked_or_with_nothing_loaded_costs_nothing_until_the_next_tap(self):
+        self.post(action="open", clock=CLOCK)
+        self.post(action="refresh")
+        self.assertEqual(self.events(), [])
+        self.open_and_unlock()
+        self.page.click("#homeBar")
+        self.post(action="refresh")                 # locked: drop the old page, ask nothing yet
+        self.assertEqual(self.events(), ["unlock"])
+        self.page.click("#lock")                    # the next tap gets a fresh ticket
+        self.assertEqual(self.events(), ["unlock", "unlock"])
+
     # ------------------------------------------------------------------------------------------ closing
     def test_escape_on_the_page_and_escape_inside_the_web_page_both_close(self):
         self.post(action="open", clock=CLOCK)

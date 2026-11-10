@@ -73,6 +73,18 @@ function loadWeb(url, reason) {
     }, Number(window.WEAZEL_WEB_TIMEOUT_MS) || 10000);
 }
 
+// The character's job or role may have changed (the game says so, or the web page says its session ended). Sign in again as whoever
+// they are NOW: a fresh ticket makes the API re-read the job. Unlocked: the page reloads in place. Locked: it reloads on the next tap.
+let lastRefresh = 0;
+function refreshSession() {
+    if (!webLoaded || unlocking) return;
+    if (Date.now() - lastRefresh < 3000) return;   // never a loop, whatever the page does
+    lastRefresh = Date.now();
+    if (tablet().classList.contains("locked")) { webLoaded = false; frame().hidden = true; frame().src = "about:blank"; return; }
+    unlocking = true;
+    fetchNUI("unlock", {});
+}
+
 function closeTablet() {
     clearWebTimer();
     webLoaded = false; unlocking = false;
@@ -93,6 +105,8 @@ window.addEventListener("message", (event) => {
     if (data.action === "clock") setLockClock(data.clock);
     if (data.action === "loadWeb") loadWeb(data.url, data.reason);
     if (data.action === "close") closeTablet();
+    if (data.action === "refresh") refreshSession();                    // the game says the job changed
+    if (data.type === "weazel-relogin") refreshSession();               // the web page says its session ended (role changed)
     if (data.type === "weazel-ready") clearWebTimer();                  // sent by the web page inside the frame
     if (data.type === "weazel-tablet-close") fetchNUI("close", {});     // Escape pressed inside the web page
 });

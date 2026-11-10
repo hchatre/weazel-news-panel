@@ -24,3 +24,10 @@ The old built-in panel (its NUI pages, `server/main.lua`, its MySQL tables' sche
 - **Web look.** The web panel uses the tablet's look: navy night with a blue glow and a red band, frosted rounded panels with a red edge, Montserrat, pill tags, rounded buttons.
 
 Tested: the tablet page in Chrome, client and server Lua with stubs, the API's account rules (pytest), and a real run where the tablet page loaded a real one-time ticket in its frame. **Not tested:** real FiveM/CEF (an `http` frame inside the `https` NUI page), real LB Phone 2.8.1 (`onUse`, `keepOpen`, `ToggleOpen` follow the published docs only; an error from inside lb-phone's own `custom.lua` was reported on the first try and is still open).
+
+## Behavior added in the last revision
+
+- **Fresh sign-in on every open.** Each tap on the lock screen asks the game server for a new single-use ticket. The server reads the character's *current* job and grade from QBCore and the API re-applies the role, so the panel always matches the job at that moment.
+- **Role changes while open.** A job change in game (`QBCore:Server:OnJobUpdate`) syncs the account and reloads the page in place. A role changed inside the web app is noticed by the page's 10-second check of `/auth/me`; on a 401 it asks the tablet to sign in again (at most once per 3 s).
+- **Freelancers are read-only.** Anyone who is not Weazel News (unemployed or any other job) is a Freelancer with no permissions: published content is readable, and there are no forms or create/edit buttons. The header search box stays (it only navigates).
+- **LB Phone icon.** The app is added in lb-phone's own `config.lua` (see `phase-5b-lbphone.md`), not registered by this resource. Untested with a real LB Phone.

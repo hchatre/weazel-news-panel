@@ -3,11 +3,13 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth";
 import { Field, PageTitle } from "@/components/ui";
 
 export default function NewArticle() {
   const { t } = useI18n();
   const router = useRouter();
+  const { can } = useAuth();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [err, setErr] = useState("");
@@ -16,6 +18,7 @@ export default function NewArticle() {
     try { const a = await api("/articles", { method: "POST", body: { title, body } }); router.push(`/articles/${a.id}`); }
     catch (x: any) { setErr(x.status === 403 ? t("forbidden") : x.message); }
   }
+  if (!can("article.create")) return <p role="alert" className="font-medium text-brand">{t("forbidden")}</p>;   // read-only roles get no form at all
   return (
     <>
       <PageTitle>{t("newArticle")}</PageTitle>

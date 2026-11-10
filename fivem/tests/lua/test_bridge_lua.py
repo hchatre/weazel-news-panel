@@ -157,6 +157,16 @@ class BridgeLuaTest(unittest.TestCase):
         off.event("weazel:server:ticket")
         self.assertEqual((off.bridge_calls, why(off)), ([], "unavailable"))
 
+    def test_a_job_change_tells_that_players_tablet_to_sign_in_again(self):
+        e = Env()
+        e.player(3, "REP1", "Jo", "Journalist", "unemployed", 0)
+        e.event("QBCore:Server:OnJobUpdate", 3, {"name": "unemployed", "grade": {"level": 0}})
+        self.assertEqual([c[0] for c in e.bridge_calls], ["syncStaff"])           # the platform learns first ...
+        self.assertIn(("weazel:client:refresh", 3, None), e.chats)                # ... then that player's tablet signs in again
+        n = len(e.chats)
+        e.event("QBCore:Server:OnJobUpdate", 0, {})                               # console / invalid source: nothing
+        self.assertEqual(len(e.chats), n)
+
     def test_an_unemployed_character_is_sent_as_such_so_the_api_can_make_them_a_freelancer(self):
         e = Env()
         e.player(3, "FREE1", "Sam", "Free", "unemployed", 0)

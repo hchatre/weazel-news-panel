@@ -101,12 +101,15 @@ local function fullSync()
     end)
 end
 
--- A hire, promotion or dismissal of an ONLINE player reaches the platform immediately.
+-- A hire, promotion or dismissal of an ONLINE player reaches the platform immediately, and that player's tablet (if open) signs in
+-- again so the role on screen follows the job. If your qb-core uses another event name, /weazel still re-reads the job on every open.
 AddEventHandler('QBCore:Server:OnJobUpdate', function(src, job)
-    if not configured() then return end
+    if not configured() or not src or src <= 0 then return end
     local player = QBCore.Functions.GetPlayer(src)
     if not player then return end
-    exports[GetCurrentResourceName()]:syncStaff(function() end, { toPlayer(player.PlayerData.citizenid, player.PlayerData.charinfo, job) })
+    exports[GetCurrentResourceName()]:syncStaff(function()
+        TriggerClientEvent('weazel:client:refresh', src)
+    end, { toPlayer(player.PlayerData.citizenid, player.PlayerData.charinfo, job) })
 end)
 
 -- server-side only event (AddEventHandler, not RegisterNetEvent): a client cannot trigger it

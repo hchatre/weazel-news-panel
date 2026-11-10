@@ -40,7 +40,9 @@ PERMISSIONS: dict[str, str] = {
     "ai.use": "Use the AI workspace (suggestions only; a person always decides)",
 }
 
-_FREELANCER = {"article.create", "article.edit.own", "article.submit"}
+# Freelancers (anyone who is not newsroom staff) can only read: published articles are readable without any permission.
+_FREELANCER: set[str] = set()
+OLD_FREELANCER = {"article.create", "article.edit.own", "article.submit"}   # what the role had before; replaced only if still exactly this
 _INTERN = {"article.create", "article.edit.own", "article.submit", "investigation.read", "investigation.contribute", "source.read"}
 _JOURNALIST = _INTERN | {"article.read", "investigation.create", "investigation.verify", "evidence.upload", "evidence.read", "source.manage", "ai.use"}
 _SENIOR = _JOURNALIST | {"article.edit.assigned", "investigation.edit", "evidence.download", "article.notes.read"}

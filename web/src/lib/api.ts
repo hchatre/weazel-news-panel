@@ -4,6 +4,18 @@ const KEY = "wz_token";
 export function getToken(): string | null { try { return sessionStorage.getItem(KEY); } catch { return null; } }
 export function setToken(t: string | null) { try { t ? sessionStorage.setItem(KEY, t) : sessionStorage.removeItem(KEY); } catch {} }
 
+/** Inside the in-game tablet a 401 means the character's role or job changed (the old session was ended on purpose).
+ *  Ask the tablet for a fresh sign-in instead of showing a login form nobody can use. */
+let lastAsk = 0;
+export function tellTabletToSignInAgain() {
+  try {
+    if (typeof window === "undefined" || window.parent === window) return;
+    if (Date.now() - lastAsk < 3000) return;
+    lastAsk = Date.now();
+    window.parent.postMessage({ type: "weazel-relogin" }, "*");
+  } catch {}
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -23,6 +35,7 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    if (res.status === 401) tellTabletToSignInAgain();
     const d = data?.detail;
     const msg = typeof d === "string" ? d : Array.isArray(d) ? d.map((x: any) => x.msg).join("; ") : res.statusText;
     throw new ApiError(res.status, msg);
