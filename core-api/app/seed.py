@@ -28,6 +28,8 @@ def seed_defaults(db: Session) -> None:
     db.flush()
 
     fl = roles.get("freelancer")
+    if fl is not None and fl.name == "Freelancer":   # the role is called Citizen now; a name an administrator chose is left alone
+        fl.name = "Citizen"
     if fl is not None and {rp.permission_key for rp in fl.permissions} == OLD_FREELANCER:
         for rp in list(fl.permissions):   # still the untouched earlier default (could write): freelancers are read-only now
             db.delete(rp)

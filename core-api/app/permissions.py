@@ -62,7 +62,7 @@ _ADMIN = set(PERMISSIONS)
 
 # key, name, rank, permissions
 DEFAULT_ROLES: list[tuple[str, str, int, set[str]]] = [
-    ("freelancer", "Freelancer", 5, _FREELANCER),
+    ("freelancer", "Citizen", 5, _FREELANCER),
     ("intern", "Intern", 10, _INTERN),
     ("journalist", "Journalist", 20, _JOURNALIST),
     ("senior_journalist", "Senior Journalist", 30, _SENIOR),

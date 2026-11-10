@@ -20,7 +20,7 @@ Install the GitHub App or push the bundle. Delete the 3 old Discord webhooks (st
 ## Update: the old panel is gone, every character gets an account
 
 - The old in-game panel and everything that only served it were deleted (NUI pages, `server/main.lua`, the phone news reader, the MySQL schema files). The FiveM resource is a tablet around the web app. Old MySQL data is untouched and still importable.
-- Any character can open the newsroom. Reporter grades 0-4 map to journalist, senior journalist, editor, editor-in-chief, system administrator (defaults, editable under Admin, Job mapping; edited rows are never overwritten). Everyone else is a **Freelancer** (write and submit only). `WEAZEL_FIVEM_DEFAULT_ROLE` changes or disables that.
+- Any character can open the newsroom. Reporter grades 0-4 map to journalist, senior journalist, editor, editor-in-chief, system administrator (defaults, editable under Admin, Job mapping; edited rows are never overwritten). Everyone else is a **Citizen** (read only). `WEAZEL_FIVEM_DEFAULT_ROLE` changes or disables that.
 - The API applies its defaults at every start, so the new role and job table appear on upgrade without a manual step.
 - Tested: 142 API tests, 25 Lua, 11 tablet-page tests, browser run as seven different characters (unemployed, taxi driver, reporter grades 0-4).
 - Not tested: a real FiveM client, real LB Phone 2.8.1.

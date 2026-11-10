@@ -21,8 +21,8 @@ def ticket(cid, name, job, grade):
 
 # who, job, grade, role label, may see investigations, staff page, admin pages
 CASES = [
-    ("Free Lance", "unemployed", 0, "Freelancer", False, False, False),
-    ("Taxi Driver", "taxi", 2, "Freelancer", False, False, False),
+    ("Free Lance", "unemployed", 0, "Citizen", False, False, False),
+    ("Taxi Driver", "taxi", 2, "Citizen", False, False, False),
     ("Jay Journalist", "reporter", 0, "Journalist", True, False, False),
     ("Rae Reporter", "reporter", 1, "Senior Journalist", True, False, False),
     ("Dee Director", "reporter", 2, "Editor", True, True, False),
@@ -44,7 +44,7 @@ with sync_playwright() as p:
         assert (nav.locator("a[href='/admin/staff']").count() == 1) == staff, (name, "staff link")
         assert (nav.locator("a[href='/admin/roles']").count() == 1) == adm, (name, "admin link")
         page.goto(f"{BASE}/articles"); expect(page.get_by_role("heading", name="Articles")).to_be_visible()
-        if role == "Freelancer":
+        if role == "Citizen":
             # read-only: the content is there, but no button and no form to create or edit anything
             assert page.get_by_role("link", name="New article").count() == 0, (name, "New article button")
             page.goto(f"{BASE}/articles/new"); page.wait_for_timeout(800)

@@ -17,7 +17,7 @@ The old built-in panel (its NUI pages, `server/main.lua`, its MySQL tables' sche
 
 - **Open.** `/weazel`, or the LB Phone app icon: `onUse` closes the phone (`ToggleOpen(false, true)`), then opens the tablet. Anyone alive with a character can open it; what they may do is decided by the web app's role for their character.
 - **Unlock = sign in.** Tapping the lock screen makes the client send `unlock`. The server looks up the character itself (citizen id, name, job and grade from QBCore, never from the client), the API brings that character's account up to date (creating it on first use) and mints a single-use ticket, and the tablet loads `…/fivem-login?ticket=…` in a frame. The ticket is requested on tap, not on open, so it cannot expire while the lock screen is showing. Re-locking and unlocking again reuses the loaded page.
-- **Role from job.** Mapped job and grade give the mapped role (default: `reporter` 0 journalist, 1 senior journalist, 2 editor, 3 editor-in-chief, 4 system administrator). Everyone else gets the **freelancer** role. `WEAZEL_FIVEM_DEFAULT_ROLE=` (empty) restores the strict behaviour: unmapped characters get no account.
+- **Role from job.** Mapped job and grade give the mapped role (default: `reporter` 0 journalist, 1 senior journalist, 2 editor, 3 editor-in-chief, 4 system administrator). Everyone else gets the **Citizen** role (internal key `freelancer`). `WEAZEL_FIVEM_DEFAULT_ROLE=` (empty) restores the strict behaviour: unmapped characters get no account.
 - **Failures** stay on the lock screen with a plain message ("not reachable", "no newsroom account", "could not be loaded") and a retry on the next tap. The page inside the frame says "ready" when it starts; if it never does within 10 s, the tablet returns to the lock screen and the client logs it.
 - **Escape / close.** Inside the frame, Escape is sent to the tablet with `postMessage`, which closes it.
 - **Players must be able to reach the web app.** The frame is loaded by each player's own game client, so `WEAZEL_PUBLIC_BASE_URL` and the API must be reachable from their PCs (a public HTTPS address on a real server). `http://127.0.0.1:3000` only works for the player on the same PC as the web app.
@@ -29,10 +29,10 @@ Tested: the tablet page in Chrome, client and server Lua with stubs, the API's a
 
 - **Fresh sign-in on every open.** Each tap on the lock screen asks the game server for a new single-use ticket. The server reads the character's *current* job and grade from QBCore and the API re-applies the role, so the panel always matches the job at that moment.
 - **Role changes while open.** A job change in game (`QBCore:Server:OnJobUpdate`) syncs the account and reloads the page in place. A role changed inside the web app is noticed by the page's 10-second check of `/auth/me`; on a 401 it asks the tablet to sign in again (at most once per 3 s).
-- **Freelancers are read-only.** Anyone who is not Weazel News (unemployed or any other job) is a Freelancer with no permissions: published content is readable, and there are no forms or create/edit buttons. The header search box stays (it only navigates).
+- **Citizens are read-only.** Anyone who is not Weazel News (unemployed or any other job) is a Citizen with no permissions: published content is readable, and there are no forms or create/edit buttons. The header search box stays (it only navigates).
 - **LB Phone icon.** The app is added in lb-phone's own `config.lua` (see `phase-5b-lbphone.md`), not registered by this resource. Untested with a real LB Phone.
 
 ## Staff list and photos
 
-- The staff page lists only people whose game job is mapped to a role (the `reporter` job) plus accounts made by hand. Freelancers and other departments never appear.
+- The staff page lists only people whose game job is mapped to a role (the `reporter` job) plus accounts made by hand. Citizens and other departments never appear.
 - An article can carry a photo: paste an image address (https) in the article editor, with an optional caption and credit. The photo is shown on the article for everyone who can read it. Uploading image files from the PC is not implemented.

@@ -9,6 +9,6 @@ A newsroom platform for a FiveM QBCore roleplay server: articles with an editori
 | `fivem/` | The FiveM resource: only the tablet (lock screen, then the web app in a frame), the LB Phone icon, and the bridge to the API. Copy this folder into your server's `resources`. |
 | `docs/` | Deployment, Windows first run, security review, phase notes, tablet and in-game news. Start with `docs/WINDOWS-FIRST-RUN.md` and `docs/DEPLOYMENT.md`. |
 
-Characters: any character can open the newsroom. Reporter grades map to newsroom roles (editable in the web app); everyone else is a Freelancer. Details in `fivem/README.md` and `docs/tablet-ui.md`.
+Characters: any character can open the newsroom. Reporter grades map to newsroom roles (editable in the web app); everyone else is a Citizen. Details in `fivem/README.md` and `docs/tablet-ui.md`.
 
 Tests: `core-api` (`pytest`), `fivem/tests` (Lua and tablet page), `web/e2e` (browser). None of them replaces testing in a real FiveM server.

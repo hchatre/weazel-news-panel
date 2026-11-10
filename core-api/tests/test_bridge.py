@@ -398,3 +398,16 @@ def test_the_untouched_earlier_freelancer_permissions_are_removed_but_an_edited_
     db.add(m.RolePermission(role_id=fl.id, permission_key="article.create")); db.commit()
     seed_defaults(db); db.commit(); db.refresh(fl)
     assert [rp.permission_key for rp in fl.permissions] == ["article.create"]   # an administrator's choice is never overwritten
+
+
+def test_the_freelancer_role_is_renamed_citizen_unless_an_administrator_named_it(db):
+    from app.seed import seed_defaults
+    role = db.query(m.Role).filter_by(key="freelancer").one()
+    assert role.name == "Citizen"
+    role.name = "Freelancer"; db.commit()
+    seed_defaults(db); db.refresh(role)
+    assert role.name == "Citizen"
+    role.name = "Guest"; db.commit()
+    seed_defaults(db); db.refresh(role)
+    assert role.name == "Guest"
+    role.name = "Citizen"; db.commit()
